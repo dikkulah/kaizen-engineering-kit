@@ -149,6 +149,7 @@ class TestFastMcpGateway(unittest.TestCase):
             "kaizen_voice_to_action",
             "kaizen_mask_observation",
             "kaizen_status",
+            "kaizen_effort_autosense",
             "kaizen_autodream",
             "neon_decide",
             "neon_batch_plan",
@@ -160,6 +161,7 @@ class TestFastMcpGateway(unittest.TestCase):
             "neon_voice_to_action",
             "neon_mask_observation",
             "neon_status",
+            "neon_effort_autosense",
         }
         self.assertEqual(names, expected)
 

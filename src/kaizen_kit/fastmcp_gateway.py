@@ -617,6 +617,15 @@ def _build_neon_server(cfg: Optional[GatewayConfig] = None) -> FastMCP:
         """Probe Neon loopback daemons (0.25s timeout) and report boolean Gemini/Bedrock capability flags."""
         return await asyncio.to_thread(carbon_orchestrator.get_neon_live_status)
 
+    @srv.tool
+    async def effort_autosense(
+        prompt_or_code: str,
+        task_type: str = "auto",
+    ) -> Dict[str, Any]:
+        """System 1 Effort AutoSense: Calibrate reasoning effort (minimal..xhigh) before frontier spend."""
+        from kaizen_kit import effort_autosense
+        return await asyncio.to_thread(effort_autosense.autosense_effort, prompt_or_code, task_type=task_type)
+
     return srv
 
 

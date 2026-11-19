@@ -322,6 +322,9 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     p_mcp = sub.add_parser("mcp-render", help="Render zero-secret MCP server template")
     p_mcp.add_argument("--output", default="", help="Optional file path to write rendered JSON")
+    p_auto = sub.add_parser("autosense", help="Effort AutoSense: System 1 calibrated reasoning effort determination")
+    p_auto.add_argument("prompt", nargs="*", help="Task prompt, code snippet or diff to calibrate effort for")
+    p_auto.add_argument("--json", action="store_true", help="Output result as JSON")
     sub.add_parser("mini-pool", help="Manage EC2 32-core parallel mini-AI pool & SSM loopback tunnels")
     sub.add_parser("cloud-brain", help="EC2 Cloud-Brain workspace sync, Zoekt code search, Code-RAG & Serena LSP")
     sub.add_parser("adk", help="Google ADK Kaizen domain workflows, 7-MCP matrix & LlmArmyMapReduce")
@@ -357,6 +360,20 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     if args.cmd == "check":
         return run_unified_check(args.path, pre_flight=args.pre_flight)
+
+    if args.cmd == "autosense":
+        from kaizen_kit import effort_autosense
+        prompt_text = " ".join(args.prompt) if args.prompt else ""
+        res = effort_autosense.autosense_effort(prompt_text)
+        if args.json:
+            print(json.dumps(res.to_dict(), indent=2))
+        else:
+            print(f"Effort Level    : {res.level} ({res.effort})")
+            print(f"Thinking Budget : {res.thinking_budget} tokens")
+            print(f"Confidence      : {res.confidence:.2f}")
+            print(f"System 1 Model  : {res.system_1_model}")
+            print(f"Rationale       : {res.rationale}")
+        return 0
 
     if args.cmd == "mcp-render":
         return run_mcp_render(args.output or None)

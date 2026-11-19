@@ -129,17 +129,20 @@ Triggered on demand ($0 idle cost, auto-terminated after 15 min inactivity) for 
 ### Layer 5: Frontier Night Batch Sweepers (Async 50% Discount)
 Overnight unattended sweepers orchestrated via Night-Shift:
 
-| Model Alias | Provider / Family | Context | Batch Mechanism | Turnaround |
+| Model Alias | Generation / Role | Context | Batch Mechanism | Turnaround |
 | :--- | :--- | :--- | :--- | :--- |
-| `gpt-5.4` | OpenAI | 128K | OpenAI Batch API (`/v1/batches`) | 24 Hours (50% off) |
-| `gpt-5.3-codex` | OpenAI | 128K | OpenAI Batch API (`/v1/batches`) | 24 Hours (50% off) |
-| `gpt-5` | OpenAI | 128K | OpenAI Batch API (`/v1/batches`) | 24 Hours (50% off) |
-| `o3` | OpenAI | 200K | OpenAI Batch API (`/v1/batches`) | 24 Hours (50% off) |
-| `claude-sonnet-5-5` | Anthropic | 200K | Anthropic Message Batches (`/v1/messages/batches`) | 24 Hours (50% off) |
-| `claude-opus-5-5` | Anthropic | 200K | Anthropic Message Batches (`/v1/messages/batches`) | 24 Hours (50% off) |
-| `deepseek-v3.2` | Local OSS / Provider | 164K | GGUF UD-Q2_K_XL on r7g.16xlarge | Overnight ($0 API) |
-| `kimi-k2.5` | Local OSS / Provider | 262K | GGUF UD-Q2_K_XL on r7g.16xlarge | Overnight ($0 API) |
-| `glm-5` | Local OSS / Provider | 200K | GGUF UD-Q2_K_XL on r7g.16xlarge | Overnight ($0 API) |
+| `o3` | Frontier Deep Reasoning Flagship | 200K | OpenAI Batch API (`/v1/batches`) | 24 Hours (50% off) |
+| `o3-mini` | High-Speed STEM & Coding Reasoning | 200K | OpenAI Batch API (`/v1/batches`) | 24 Hours (50% off) |
+| `o1` / `o1-pro` | Deliberative Multi-Turn Reasoning | 200K | OpenAI Batch API (`/v1/batches`) | 24 Hours (50% off) |
+| `gpt-4.5` | Knowledge & World Understanding | 128K | OpenAI Batch API (`/v1/batches`) | 24 Hours (50% off) |
+| `gpt-4o` / `gpt-4o-mini`| Omnimodal Fast Execution | 128K | OpenAI Batch API (`/v1/batches`) | 24 Hours (50% off) |
+| `gpt-5.4` / `gpt-5` | Next-Gen Frontier Agentic Flagship | 128K | OpenAI Batch API (`/v1/batches`) | 24 Hours (50% off) |
+| `gpt-5.3-codex` | Autonomous Code Generation & Refactor | 128K | OpenAI Batch API (`/v1/batches`) | 24 Hours (50% off) |
+| `claude-sonnet-5-5` | Anthropic Daylight / Night Architect | 200K | Anthropic Message Batches (`/v1/messages/batches`) | 24 Hours (50% off) |
+| `claude-opus-5-5` | Anthropic Supreme Judge / Forensics | 200K | Anthropic Message Batches (`/v1/messages/batches`) | 24 Hours (50% off) |
+| `deepseek-v3.2` | Local OSS / Provider MoE (671B/37B) | 164K | GGUF UD-Q2_K_XL on r7g.16xlarge | Overnight ($0 API) |
+| `kimi-k2.5` | Frontier Council Long-Context (1000B/32B)| 262K | GGUF UD-Q2_K_XL on r7g.16xlarge | Overnight ($0 API) |
+| `glm-5` | Frontier Reasoning Sweeper (744B/40B) | 200K | GGUF UD-Q2_K_XL on r7g.16xlarge | Overnight ($0 API) |
 
 ---
 
@@ -233,3 +236,35 @@ The Night-Shift orchestrator:
 3. Executes local AutoDream on EC2 / CPU DDR5 ($0 API cost).
 4. Persists execution state to `night_shift_state.json`.
 5. Summarizes everything in `night_shift_morning_report.md` when you wake up (`kaizen-kit carbon night-shift --morning`).
+
+---
+
+## 5. Effort AutoSense (Kahneman System 1 Thinking Calibration)
+
+Before firing high-latency, expensive System 2 reasoning models (`o3`, `o1`, `Claude Sonnet 5.5 Thinking`, `Gemini 4 Carbon`), the **Effort AutoSense** engine (`src/kaizen_kit/effort_autosense.py`) uses fast, intuitive sub-1ms heuristics or ultra-light sub-1B/4B models (`qwen3.5-0.8b`, `bitnet-2b`) to calibrate thinking effort:
+
+| Level | Thinking Budget | Typical Engineering Triggers |
+| :--- | :--- | :--- |
+| **`MINIMAL`** | `0 tokens` | Typos, docstrings, Markdown formatting, version bumps, 1-line syntax tweaks. |
+| **`LOW`** | `1,024 tokens` | Localized function edits, mechanical guard-clause inversion, basic unit assertions. |
+| **`MEDIUM`** | `4,096 tokens` | Standard feature authoring, multi-function refactoring, REST endpoint additions. |
+| **`HIGH`** | `16,384 tokens` | Concurrency race conditions, Clean Architecture layer violations, connection pools. |
+| **`XHIGH`** | `32,768 tokens` | Distributed deadlocks, formal protocol verification, multi-repo blast radius. |
+
+```bash
+# Test Effort AutoSense from the terminal
+kaizen-kit autosense "Diagnose race condition and deadlock in cross-repo connection pool"
+# Output: Level=XHIGH (32,768 tokens, System 1 confidence=0.92)
+```
+
+---
+
+## 6. Modular Always-On Plugins (`plugins/`)
+
+The repository includes 4 self-contained, open-source plugins under [`plugins/`](../plugins/):
+
+1. **[`plugins/kaizen-optimizer`](../plugins/kaizen-optimizer/)**: Autonomous Kaizen v4.0 Developer Optimization Engine, Token Governor, and AutoDream memory consolidation.
+2. **[`plugins/senior-review-guard`](../plugins/senior-review-guard/)**: Universal Senior Code Reviewer Guard enforcing Clean Architecture, fail-closed auth, and pre-flight CI gates.
+3. **[`plugins/agent-orchestrator`](../plugins/agent-orchestrator/)**: Multi-Agent Orchestrator and lazy router for 220+ specialist personas.
+4. **[`plugins/refactor-guru`](../plugins/refactor-guru/)**: Systematic diagnosis of 22 code smells and 66 Clean Code refactoring recipes.
+

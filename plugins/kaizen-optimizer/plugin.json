@@ -1,0 +1,16 @@
+{
+  "name": "kaizen-optimizer",
+  "version": "4.0.0",
+  "description": "Autonomous Kaizen Developer Optimization Engine, Token Governor & AutoDream Memory Consolidation",
+  "author": "Kaizen Engineering Team",
+  "license": "MIT",
+  "skills": [
+    "kaizen-optimizer",
+    "prompt-optimizer",
+    "token-optimizer",
+    "effort-autosense"
+  ],
+  "rules": [
+    "rules/AGENTS.md"
+  ]
+}

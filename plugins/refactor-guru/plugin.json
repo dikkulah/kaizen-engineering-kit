@@ -1,0 +1,11 @@
+{
+  "name": "refactor-guru",
+  "version": "4.0.0",
+  "description": "Systematic Code Smell Diagnosis, Refactoring Recipes & Clean Code Enforcement",
+  "author": "Kaizen Engineering Team",
+  "license": "MIT",
+  "skills": [
+    "refactor-guru",
+    "clean-code-enforcer"
+  ]
+}

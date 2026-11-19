@@ -1,0 +1,14 @@
+{
+  "name": "agent-orchestrator",
+  "version": "4.0.0",
+  "description": "Universal Multi-Agent Orchestrator & Agency Matrix Router",
+  "author": "Kaizen Engineering Team",
+  "license": "MIT",
+  "skills": [
+    "agency-agents",
+    "antigravity-claude-bridge"
+  ],
+  "rules": [
+    "rules/AGENTS.md"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "name": "senior-review-guard",
+  "version": "4.0.0",
+  "description": "Universal Senior Code Reviewer Guard & Pre-Flight CI Gates",
+  "author": "Kaizen Engineering Team",
+  "license": "MIT",
+  "skills": [
+    "senior-review-guard"
+  ],
+  "rules": [
+    "rules/AGENTS.md"
+  ]
+}

@@ -222,12 +222,26 @@ See the full deployment guide and 7-port tunnel commands in **[docs/CLOUD_BRAIN.
 | `kaizen-kit qlora` / `best-of-n` | Execute Best-of-N execution-oracle SFT/DPO dataset synthesis and emit QLoRA training scripts | `kaizen-kit qlora self-test` |
 | `kaizen-kit night-shift` | Run autonomous overnight batch refactoring, test hardening, and morning diff report | `kaizen-kit night-shift --morning` |
 | `kaizen-kit gpu-burst` | Plan and inspect scale-to-zero Spot GPU tiers, KV-cache `Q8_0`/`FP8` configs, and RPC fleets | `kaizen-kit gpu-burst tiers` |
+| `kaizen-kit autosense` | System 1 thinking effort calibration (minimal..xhigh / 0-32k tokens) | `kaizen-kit autosense "race condition"` |
 | `kaizen-kit mcp-render` / `mcp` | Launch or render the FastMCP gateway configuration for any MCP-compatible IDE/CLI | `kaizen-kit mcp-render` |
+
+---
+
+## Modular Always-On Plugins (`plugins/`)
+
+The toolkit provides 4 production-grade plugins ready to install into any coding assistant or harness:
+
+1. **[`plugins/kaizen-optimizer`](plugins/kaizen-optimizer/)**: Autonomous Kaizen Developer Optimization Engine, Token Governor, and AutoDream memory consolidation.
+2. **[`plugins/senior-review-guard`](plugins/senior-review-guard/)**: Universal Senior Code Reviewer Guard enforcing Clean Architecture, fail-closed auth, and pre-flight CI gates.
+3. **[`plugins/agent-orchestrator`](plugins/agent-orchestrator/)**: Multi-Agent Orchestrator and lazy router for 220+ specialist personas.
+4. **[`plugins/refactor-guru`](plugins/refactor-guru/)**: Systematic diagnosis of 22 code smells and 66 Clean Code refactoring recipes.
 
 ---
 
 ## Documentation Suite
 
+- **[Master Model Catalog (50+ Models & 6 Layers)](docs/MODEL_CATALOG.md)** — Comprehensive catalog covering OpenAI (`gpt-5.4`, `gpt-5`, `o3`, `o3-mini`, `o1`, `gpt-4.5`, `gpt-4o`), Anthropic Claude 5.5, NVIDIA Nemotron, local Sparse-MoE, AutoDream memory, and Effort AutoSense.
+- **[Agent Agency & Multi-Provider SDK Matrix](docs/AGENCY_MATRIX.md)** — Universal 5-Tier Agent Matrix and code recipes for **Google ADK**, **OpenAI Agents SDK / Swarm**, **Anthropic Claude Agent SDK**, **LangGraph**, **Microsoft AutoGen**, and **CrewAI**.
 - **[Architecture & Execution Pipelines](docs/ARCHITECTURE.md)** — Deep dive into the 5-Stage Verification Cascade, Disjoint-Family PoLL Jury, Execution-Oracle Best-of-N QLoRA Factory, and Distributed `llama.cpp` RPC + `vLLM` Serving.
 - **[Universal Harness Integration Guide](docs/HARNESS_GUIDE.md)** — Step-by-step setup and copy-paste configurations for **Claude Code**, **OpenAI Codex CLI**, **ChatGPT / OpenAI API**, **OpenCode**, **Cursor**, **Aider**, **Continue**, and **100% Offline Ollama / vLLM / LiteLLM**.
 - **[Token Reduction Architecture](docs/TOKEN_REDUCTION.md)** — Technical specification and savings benchmarks for the 6 token-saving mechanisms (CAPC Prefix Ordering, `>80L` Observation Masking, TALE Dynamic Budgets, AST Skeletons, KV-Cache `Q8_0` & Prefix Caching, and Voice Hybrid VAD).
