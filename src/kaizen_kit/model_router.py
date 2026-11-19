@@ -89,7 +89,6 @@ OPENAI_ALIASES: Dict[str, str] = {
     "o3": "o3",
     "o4-mini": "o4-mini",
     "codex-mini-latest": "codex-mini-latest",
-    "gpt-oss-120b": "gpt-oss-120b",
     "chatgpt": "gpt-5.4",
 }
 
@@ -110,15 +109,14 @@ ANTHROPIC_ALIASES: Dict[str, str] = {
 }
 
 OLLAMA_ALIASES: Dict[str, str] = {
-    "qwen3.5-4b": "qwen3.5-4b",
-    "qwen3-coder-30b-a3b": "qwen3-coder-30b-a3b",
-    "qwen3.5-35b-a3b": "qwen3.5-35b-a3b",
-    "gemma-4-26b-a4b": "gemma-4-26b-a4b",
     "llama3.3": "llama3.3",
+    "llama3.2": "llama3.2",
     "codestral": "codestral",
     "devstral-small": "devstral-small",
     "deepseek-v3": "deepseek-v3",
     "deepseek-r1": "deepseek-r1",
+    "qwen2.5-coder": "qwen2.5-coder",
+    "deepseek-coder-v2": "deepseek-coder-v2",
 }
 
 OPENAI_COMPAT_PREFIXES: Tuple[str, ...] = (

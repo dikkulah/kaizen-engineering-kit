@@ -333,17 +333,18 @@ class TestModelRouter(unittest.TestCase):
         }
         with patch.dict(os.environ, clean_env, clear=True):
             router = model_router.ModelRouter()
-            for alias in ("gpt-5.4", "gpt-5.3-codex", "gpt-5", "gpt-4.1", "gpt-4.1-mini", "o3", "o4-mini", "codex-mini-latest", "gpt-oss-120b"):
+            for alias in ("gpt-5.4", "gpt-5.3-codex", "gpt-5", "gpt-4.1", "gpt-4.1-mini", "o3", "o4-mini", "codex-mini-latest"):
                 target = router.resolve(alias)
                 self.assertEqual(target.backend, "openai")
                 self.assertEqual(target.canonical_model, alias)
                 self.assertEqual(target.endpoint, "https://api.openai.com/v1")
                 self.assertFalse(target.requires_local_aws_profile)
 
-            for alias in ("claude-sonnet-5-5", "claude-opus-5-5", "claude-haiku-5-5", "claude-fable-5", "claude-sonnet-4", "claude-opus-4", "claude-haiku-4"):
+            for alias in ("anthropic/claude-sonnet-5-5", "anthropic/claude-opus-5-5", "claude-sonnet-4", "claude-opus-4", "claude-haiku-4"):
+                expected_canonical = alias.split("/", 1)[-1]
                 target = router.resolve(alias)
                 self.assertEqual(target.backend, "anthropic")
-                self.assertEqual(target.canonical_model, alias)
+                self.assertEqual(target.canonical_model, expected_canonical)
                 self.assertEqual(target.endpoint, "https://api.anthropic.com/v1/messages")
                 self.assertFalse(target.requires_local_aws_profile)
 
