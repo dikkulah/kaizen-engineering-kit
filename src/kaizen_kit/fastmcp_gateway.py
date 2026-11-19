@@ -638,6 +638,7 @@ def build_fastmcp_server(
     root.mount(_build_coderag_server(cfg), namespace="coderag")
     root.mount(_build_zoekt_server(cfg), namespace="zoekt")
     root.mount(_build_litellm_server(cfg), namespace="litellm")
+    root.mount(_build_neon_server(cfg), namespace="kaizen")
     root.mount(_build_neon_server(cfg), namespace="neon")
 
     if include_serena:
@@ -674,6 +675,16 @@ def build_fastmcp_server(
     @root.tool
     async def memory_autodream(max_records: int = 30) -> Dict[str, Any]:
         """Run asynchronous AutoDream consolidation via LiteLLM (:4000)."""
+        return await asyncio.to_thread(
+            mirix_memory.run_autodream,
+            store=_get_mirix_store(),
+            max_records=max_records,
+            litellm_url=cfg.litellm_url,
+        )
+
+    @root.tool
+    async def kaizen_autodream(max_records: int = 30) -> Dict[str, Any]:
+        """Run asynchronous AutoDream consolidation via LiteLLM (:4000) [Kaizen MCP alias]."""
         return await asyncio.to_thread(
             mirix_memory.run_autodream,
             store=_get_mirix_store(),

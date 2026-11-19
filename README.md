@@ -14,22 +14,22 @@
 ## Architecture & Plug-and-Play Flow
 
 ```mermaid
-flowchart TD
-    H["Developer Harnesses: Claude Code, Codex CLI, OpenCode, Cursor, Aider, Continue"] --> UHA["Universal Hook Adapter and Token-Lean Layer"]
-    UHA -->|"CAPC Prefix + 80L+ Masking + PII Vault"| MR["Vendor-Neutral ModelRouter"]
+graph TD
+    H["Developer Harnesses<br/>Claude Code / Codex / OpenCode / Cursor / Aider"] --> UHA["Universal Hook Adapter<br/>65%-88% Token Reduction Layer"]
+    UHA --> MR["Vendor-Neutral ModelRouter<br/>Zero Vendor Lock-In"]
 
-    MR -->|"Local / Air-Gapped"| OSS["Local OSS: Ollama, vLLM, LiteLLM, llama.cpp RPC"]
-    MR -->|"OpenAI / Anthropic / Cloud"| CLOUD["Frontier APIs: OpenAI, Anthropic, Gemini, Bedrock"]
+    MR -->|"Air-Gapped / Offline"| OSS["Local OSS Pool<br/>Ollama / vLLM / LiteLLM / llama.cpp"]
+    MR -->|"Frontier Cloud APIs"| CLOUD["Frontier Cloud Models<br/>OpenAI / Anthropic / Gemini / Bedrock"]
 
-    OSS --> CASC["5-Stage Difficulty Cascade and TALE Token Budget"]
+    OSS --> CASC["Difficulty Cascade<br/>TALE Token Governance"]
     CLOUD --> CASC
 
-    CASC --> ORACLE["ExecutionOracleGate: Compiler, Tests, JSON Schema / XGrammar"]
-    ORACLE -->|"Pass"| POLL["Disjoint-Family PoLL Review Jury"]
-    ORACLE -->|"Fail"| CASC
+    CASC --> ORACLE["Execution Oracle Gate<br/>Compilers, Tests, JSON Schema"]
+    ORACLE -->|"Verification Pass"| POLL["Disjoint-Family PoLL Review Jury"]
+    ORACLE -->|"Verification Fail"| CASC
 
-    POLL --> GATES["Deterministic Quality Gates: Clean Code, Arch DAG, Refactor Radar"]
-    ORACLE -.->|"Verified SFT / DPO Pairs"| QLORA["QLoRA Fine-Tuning Factory"]
+    POLL --> GATES["Deterministic Quality Gates<br/>Clean Code, AST DAG, Refactor Radar"]
+    ORACLE -->|"Verified SFT/DPO Pairs"| QLORA["QLoRA Fine-Tuning Factory"]
 ```
 
 ---
@@ -150,21 +150,38 @@ Distilled, token-dense architectural references accessible offline via `kaizen-k
 
 ## AutoDream & MIRIX Continual Memory Consolidation
 
-Instead of repeating the same debugging dead-ends across sessions, `kaizen-engineering-kit` combines **MIRIX Multi-Store Memory** (`kaizen_kit.mirix_memory`), **Hansei Ledger** (`kaizen_kit.gates.hansei_ledger`), and **AutoDream** (`ling-mini-2.0` via FastMCP `memory_autodream`):
+Instead of repeating the same debugging dead-ends across sessions, `kaizen-engineering-kit` combines **MIRIX Multi-Store Memory** (`kaizen_kit.mirix_memory`), **Hansei Ledger** (`kaizen_kit.gates.hansei_ledger`), and **AutoDream** (`ling-mini-2.0` via FastMCP `kaizen_autodream`):
 
 ```mermaid
-flowchart LR
+graph LR
     S["Coding Session / Hook Traces"] -->|"Tool Failures and Fixes"| HANSEI["Hansei Ledger and DEAD_ENDS.md"]
     S -->|"Episodic Facts"| MIRIX["MIRIX Memory Stores"]
-    HANSEI --> DREAM["AutoDream Consolidator: ling-mini-2.0"]
+    HANSEI --> DREAM["AutoDream Consolidator<br/>ling-mini-2.0 on :4000"]
     MIRIX --> DREAM
     DREAM -->|"Deduplicates and Distills Rules"| RULES["Compact SessionStart Briefing"]
     RULES -->|"Injected via CAPC Suffix"| NEXT["Next Agent Session across Any Harness"]
 ```
 
 - **Zero-Repeat Dead Ends (`DEAD_ENDS.md`)**: Failed hypotheses, broken flags, and hardware/quota traps are logged once and injected at `SessionStart` so subsequent sessions never re-hit the same trap.
-- **Sleep-Cycle Consolidation (`memory_autodream`)**: Periodically prunes stale episodic entries, merges duplicate architectural lessons into `kaizen_ledger.json`, and keeps the injected briefing under strict token budgets.
-- **Night-Shift Autonomous Runs (`kaizen-kit night-shift`)**: Partitions queued tasks automatically—keeping confidential work on local OSS/MoE workers while routing sanitized batch work to `Decision-1` / `Batch` / `Flex` lanes with `$0` idle GPU cost.
+- **Sleep-Cycle Consolidation (`kaizen_autodream` / `memory_autodream`)**: Periodically prunes stale episodic entries, merges duplicate architectural lessons into `kaizen_ledger.json`, and keeps the injected briefing under strict token budgets.
+- **Night-Shift Autonomous Runs (`kaizen-kit carbon night-shift`)**: Partitions queued tasks automatically across 5+ lanes:
+  - **Local OSS Lane (`ec2_local`)**: AutoDream memory consolidation & Best-of-N code synthesis ($0 overnight API cost).
+  - **OpenAI Batch Lane (`openai_batch`)**: Async 50%-discounted `/v1/batches` for GPT-5.4, GPT-5, and o3.
+  - **Anthropic Batch Lane (`anthropic_batch`)**: Async 50%-discounted `/v1/messages/batches` for Claude Sonnet 5.5 and Opus 5.5.
+  - **Gemini Batch & Flex Lanes (`gemini_batch` / `gemini_flex`)**: 50%-discounted execution stackable with Context Caching.
+
+---
+
+## 50+ Model Catalog & 6-Layer Compute Matrix
+
+The toolkit orchestrates **50+ local open-weight and frontier cloud models** without vendor lock-in. Full specifications, memory footprints, hardware targets, and licensing details are available in **[`docs/MODEL_CATALOG.md`](docs/MODEL_CATALOG.md)**:
+
+- **Layer 0 (CPU Guards & OCR, <1GB)**: `prompt-guard-deberta`, `qwen3-guard-0.6b`, `bge-m3`, `qwen3-reranker-0.6b`, `granite-docling-258m`, `whisper-large-v3-turbo`, `kokoro-82m`.
+- **Layer 1 (Micro Edge & Skeletons, <=4B)**: `qwen3.5-4b`, `nemotron-nano-9b-v2`, `bitnet-2b` (1.58-bit ternary), `gemma-4-e2b`.
+- **Layer 2 (Always-On CPU Sparse-MoE, <=3.8B Active)**: `qwen3-coder-30b-a3b`, `qwen3.5-35b-a3b`, `nemotron-3-nano-30b-a3b`, `glm-4.7-flash`, `ling-mini-2.0` (AutoDream engine), `gemma-4-26b-a4b`.
+- **Layer 3 (Day Managed Frontier)**: `claude-sonnet-5-5`, `claude-opus-5-5`, `claude-haiku-5-5`, `claude-fable-5`, `gemini-4-hydrogen`, `gemini-4-carbon`, `gemini-decision-1`.
+- **Layer 4 (Ephemeral Spot GPU Burst, $0 Idle)**: `nemotron-super-49b`, `deepseek-r1-32b-awq`, `qwen3-32b-awq`, `qwen3-coder-next`, `qwen3-235b-a22b-rpc` (16-node distributed).
+- **Layer 5 (Frontier Night Batch)**: `gpt-5.4`, `gpt-5.3-codex`, `o3`, `claude-sonnet-5-5`, `deepseek-v3.2`, `kimi-k2.5`.
 
 ---
 
@@ -174,10 +191,10 @@ Offload heavy language servers, hybrid Code-RAG, trigram search, and Sparse-MoE 
 
 | Loopback Port | Service (`infra/cloud_brain/docker-compose.yml`) | Role |
 | :--- | :--- | :--- |
-| **`127.0.0.1:4000`** | `litellm-proxy` (`ollama` + `tei`) | OpenAI-compatible router for Sparse-MoE coders (`qwen3-coder-30b-a3b`, `qwen3.5-35b-a3b`) & TEI hybrid embed/rerank (`bge-m3`, `qwen3-reranker-0.6b`) |
+| **`127.0.0.1:4000`** | `litellm-proxy` (`ollama` + `tei`) | OpenAI-compatible router for Sparse-MoE coders (`qwen3-coder-30b-a3b`, `qwen3.5-35b-a3b`, `nemotron-3-nano-30b-a3b`) & TEI hybrid embed/rerank (`bge-m3`, `qwen3-reranker-0.6b`) |
 | **`127.0.0.1:8765`** | `jev-guardrail` | Sub-50ms input/output/streaming safety rail (`qwen3-guard-0.6b`) & pool telemetry |
 | **`127.0.0.1:8766`** | `mini-pool` | 21-model Hot/Warm LRU manager (`58 GiB` core / `72 GiB` ceiling), **AutoDream** (`ling-mini-2.0`), OCR & Hybrid-VAD voice |
-| **`127.0.0.1:8770`** | `neon-mcp` | Unified FastMCP gateway exposing 16 tools (`neon_*`, `memory_autodream`, `coderag_*`, `zoekt_*`) |
+| **`127.0.0.1:8770`** | `kaizen-mcp` | Unified FastMCP gateway exposing 28 tools (`kaizen_*` with `neon_*` legacy aliases, `kaizen_autodream`, `memory_*`, `coderag_*`, `zoekt_*`) |
 | **`127.0.0.1:6070`** | `zoekt-webserver` | Sub-20ms trigram regex & symbol search across repositories |
 | **`127.0.0.1:18808`** | `coderag` | AST + BM25 + LanceDB Reciprocal Rank Fusion (RRF) Code-RAG API |
 | **`127.0.0.1:24280`** | `serena-lsp` | Persistent in-RAM language server daemon (`rust-analyzer`, `jdtls`, `tsserver`, `pyright`) |

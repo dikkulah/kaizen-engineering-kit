@@ -174,6 +174,17 @@ OSS_ALIASES: Dict[str, str] = {
     "qwen3.5-35b-a3b": "qwen3.5-35b-a3b",
     "glm-4.7-flash": "glm-4.7-flash",
     "ling-mini-2.0": "ling-mini-2.0",
+    "nemotron-nano-9b-v2": "nemotron-nano-9b-v2",
+    "nemotron-nano-9b": "nemotron-nano-9b-v2",
+    "nemotron-nano": "nemotron-nano-9b-v2",
+    "nemotron-3-nano-30b-a3b": "nemotron-3-nano-30b-a3b",
+    "nemotron-30b-a3b": "nemotron-3-nano-30b-a3b",
+    "nemotron-super-49b": "nemotron-super-49b",
+    "deepseek-v3.2": "deepseek-v3.2",
+    "grok-3": "grok-3",
+    "grok-code": "grok-code",
+    "kimi-k2": "kimi-k2-chat",
+    "kimi-k2.5": "kimi-k2.5",
 }
 
 DEPRECATED_OSS_ALIASES: Dict[str, str] = {

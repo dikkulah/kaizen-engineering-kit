@@ -35,7 +35,18 @@ except ImportError:
 _LOG = logging.getLogger("kaizen_kit.neon_night_shift")
 
 ALLOWED_CLASSIFICATION = gemini_cloud_client.ALLOWED_DATA_CLASSIFICATION
-VALID_MODES = ("ec2_local", "decision", "batch", "flex", "best_of_n", "lora_synth")
+VALID_MODES = (
+    "ec2_local",
+    "decision",
+    "batch",
+    "flex",
+    "openai_batch",
+    "anthropic_batch",
+    "gemini_batch",
+    "gemini_flex",
+    "best_of_n",
+    "lora_synth",
+)
 DEFAULT_EC2_MODEL = "ling-mini-2.0"
 DEFAULT_DECISION_MODEL = gemini_cloud_client.DEFAULT_DECISION_MODEL
 DEFAULT_GEMINI_MODEL = gemini_cloud_client.DEFAULT_GENERATE_MODEL
@@ -73,6 +84,7 @@ class NightShiftTask:
     title: str
     prompt: str
     mode: str = "ec2_local"
+    provider: str = ""
     data_classification: str = "corporate_proprietary"
     model: str = ""
     system_instruction: str = ""
@@ -101,6 +113,7 @@ class NightShiftTask:
         if int(self.best_of_n) < 1:
             raise ValueError(f"Task '{self.task_id}' best_of_n must be >= 1.")
         object.__setattr__(self, "mode", norm_mode)
+        object.__setattr__(self, "provider", (self.provider or "").strip().lower())
         object.__setattr__(self, "best_of_n", int(self.best_of_n))
         object.__setattr__(self, "thinking_level", _normalize_thinking_level(self.thinking_level))
 
@@ -121,6 +134,7 @@ class NightShiftTask:
             title=str(raw.get("title") or raw.get("task_id") or f"Night Task {index}"),
             prompt=str(raw.get("prompt") or ""),
             mode=str(raw.get("mode") or "ec2_local"),
+            provider=str(raw.get("provider") or ""),
             data_classification=str(raw.get("data_classification") or "corporate_proprietary"),
             model=str(raw.get("model") or ""),
             system_instruction=str(raw.get("system_instruction") or ""),
@@ -166,6 +180,57 @@ class NightShiftLanePlan:
         }
 
 
+def build_openai_batch_jsonl(tasks: Sequence[NightShiftTask], default_model: str = "gpt-5.4") -> str:
+    """Build standard OpenAI Batch API JSONL lines (/v1/batches with /v1/chat/completions)."""
+    lines: List[str] = []
+    for task in tasks:
+        messages: List[Dict[str, str]] = []
+        if task.system_instruction:
+            messages.append({"role": "system", "content": task.system_instruction})
+        messages.append({"role": "user", "content": task.prompt})
+        model = task.model.strip() or default_model
+        body: Dict[str, Any] = {
+            "model": model,
+            "messages": messages,
+        }
+        if task.max_output_tokens is not None:
+            body["max_tokens"] = task.max_output_tokens
+        if task.response_json_schema is not None:
+            body["response_format"] = {
+                "type": "json_schema",
+                "json_schema": {"name": "batch_output", "schema": task.response_json_schema, "strict": True},
+            }
+        line = {
+            "custom_id": task.task_id,
+            "method": "POST",
+            "url": "/v1/chat/completions",
+            "body": body,
+        }
+        lines.append(json.dumps(line, ensure_ascii=False))
+    return "\n".join(lines)
+
+
+def build_anthropic_batch_jsonl(tasks: Sequence[NightShiftTask], default_model: str = "claude-sonnet-5-5") -> str:
+    """Build standard Anthropic Message Batches JSONL lines (/v1/messages/batches)."""
+    lines: List[str] = []
+    for task in tasks:
+        messages = [{"role": "user", "content": task.prompt}]
+        model = task.model.strip() or default_model
+        params: Dict[str, Any] = {
+            "model": model,
+            "max_tokens": task.max_output_tokens or 4096,
+            "messages": messages,
+        }
+        if task.system_instruction:
+            params["system"] = task.system_instruction
+        line = {
+            "custom_id": task.task_id,
+            "params": params,
+        }
+        lines.append(json.dumps(line, ensure_ascii=False))
+    return "\n".join(lines)
+
+
 @dataclass(frozen=True)
 class NightShiftPlan:
     """Complete Night-Shift plan with quarantine, Lever D/QLoRA lanes & FinOps telemetry."""
@@ -175,6 +240,8 @@ class NightShiftPlan:
     gemini_decision_1: NightShiftLanePlan
     gemini_batch: NightShiftLanePlan
     gemini_flex: NightShiftLanePlan
+    openai_batch: Optional[NightShiftLanePlan] = None
+    anthropic_batch: Optional[NightShiftLanePlan] = None
     best_of_n: Optional[NightShiftLanePlan] = None
     lora_synth: Optional[NightShiftLanePlan] = None
     quarantined_tasks: Tuple[Dict[str, str], ...] = ()
@@ -182,6 +249,8 @@ class NightShiftPlan:
     shared_rubric_chars: int = 0
     cache_blocked_reason: str = ""
     batch_jsonl_preview: Tuple[str, ...] = ()
+    openai_batch_jsonl_preview: Tuple[str, ...] = ()
+    anthropic_batch_jsonl_preview: Tuple[str, ...] = ()
     finops_guard: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -192,6 +261,10 @@ class NightShiftPlan:
             "gemini_batch": self.gemini_batch.to_dict(),
             "gemini_flex": self.gemini_flex.to_dict(),
         }
+        if self.openai_batch is not None:
+            lanes["openai_batch"] = self.openai_batch.to_dict()
+        if self.anthropic_batch is not None:
+            lanes["anthropic_batch"] = self.anthropic_batch.to_dict()
         if self.best_of_n is not None:
             lanes["best_of_n"] = self.best_of_n.to_dict()
         if self.lora_synth is not None:
@@ -206,6 +279,8 @@ class NightShiftPlan:
             "shared_rubric_chars": self.shared_rubric_chars,
             "cache_blocked_reason": self.cache_blocked_reason,
             "batch_jsonl_preview": list(self.batch_jsonl_preview),
+            "openai_batch_jsonl_preview": list(self.openai_batch_jsonl_preview),
+            "anthropic_batch_jsonl_preview": list(self.anthropic_batch_jsonl_preview),
             "finops_guard": dict(self.finops_guard),
         }
 
@@ -357,6 +432,8 @@ def _partition_lanes(tasks: Sequence[NightShiftTask]) -> Tuple[Dict[str, List[Ni
         "decision": [],
         "batch": [],
         "flex": [],
+        "openai_batch": [],
+        "anthropic_batch": [],
         "best_of_n": [],
         "lora_synth": [],
     }
@@ -376,6 +453,7 @@ def _partition_lanes(tasks: Sequence[NightShiftTask]) -> Tuple[Dict[str, List[Ni
                             title=task.title,
                             prompt=task.prompt,
                             mode=task.mode,
+                            provider=task.provider,
                             data_classification="corporate_proprietary",
                             model=DEFAULT_EC2_MODEL,
                             system_instruction=task.system_instruction,
@@ -390,6 +468,30 @@ def _partition_lanes(tasks: Sequence[NightShiftTask]) -> Tuple[Dict[str, List[Ni
                     continue
             buckets[task.mode].append(task)
             continue
+
+        # Check explicit or model-inferred OpenAI / Anthropic batch mode
+        is_openai = (
+            task.mode == "openai_batch"
+            or (task.mode == "batch" and (
+                getattr(task, "provider", "").lower() == "openai"
+                or task.model.strip().lower().startswith(("gpt-", "o1", "o3", "o4", "codex"))
+            ))
+        )
+        if is_openai:
+            buckets["openai_batch"].append(task)
+            continue
+
+        is_anthropic = (
+            task.mode == "anthropic_batch"
+            or (task.mode == "batch" and (
+                getattr(task, "provider", "").lower() == "anthropic"
+                or task.model.strip().lower().startswith(("claude-",))
+            ))
+        )
+        if is_anthropic:
+            buckets["anthropic_batch"].append(task)
+            continue
+
         block_reason = _check_gemini_residency(task)
         if block_reason is None:
             buckets[task.mode].append(task)
@@ -401,6 +503,7 @@ def _partition_lanes(tasks: Sequence[NightShiftTask]) -> Tuple[Dict[str, List[Ni
                 title=task.title,
                 prompt=task.prompt,
                 mode="ec2_local",
+                provider=task.provider,
                 data_classification="corporate_proprietary",
                 model=task.model if task.model and not task.model.startswith("gemini-") else DEFAULT_EC2_MODEL,
                 system_instruction=task.system_instruction,
@@ -491,6 +594,16 @@ def plan_night_shift(
         )
         batch_preview = tuple(jsonl_text.splitlines())
 
+    openai_preview: Tuple[str, ...] = ()
+    if buckets["openai_batch"]:
+        openai_jsonl = build_openai_batch_jsonl(buckets["openai_batch"])
+        openai_preview = tuple(openai_jsonl.splitlines()[:10])
+
+    anthropic_preview: Tuple[str, ...] = ()
+    if buckets["anthropic_batch"]:
+        anthropic_jsonl = build_anthropic_batch_jsonl(buckets["anthropic_batch"])
+        anthropic_preview = tuple(anthropic_jsonl.splitlines()[:10])
+
     plan = NightShiftPlan(
         generated_at=_utc_now(),
         ec2_local=NightShiftLanePlan(
@@ -521,6 +634,20 @@ def plan_night_shift(
             sla="1-15 min synchronous chain SLA",
             tasks=tuple(buckets["flex"]),
         ),
+        openai_batch=NightShiftLanePlan(
+            lane="openai_batch",
+            backend="POST https://api.openai.com/v1/batches",
+            discount_profile="50% vs Standard token costs (GPT-5.4 / GPT-5 / o3)",
+            sla="Async <= 24h turnaround SLA",
+            tasks=tuple(buckets["openai_batch"]),
+        ),
+        anthropic_batch=NightShiftLanePlan(
+            lane="anthropic_batch",
+            backend="POST https://api.anthropic.com/v1/messages/batches",
+            discount_profile="50% vs Standard token costs (Claude Sonnet 5.5 / Opus 5.5)",
+            sla="Async <= 24h turnaround SLA",
+            tasks=tuple(buckets["anthropic_batch"]),
+        ),
         best_of_n=NightShiftLanePlan(
             lane="best_of_n",
             backend="CascadeRouter.execute_best_of_n (EC2 MoE :4000 + ExecutionGateSpec)",
@@ -540,6 +667,8 @@ def plan_night_shift(
         shared_rubric_chars=len(shared_rubric.strip()),
         cache_blocked_reason=cache_blocked_reason,
         batch_jsonl_preview=batch_preview,
+        openai_batch_jsonl_preview=openai_preview,
+        anthropic_batch_jsonl_preview=anthropic_preview,
         finops_guard={
             "gpu_spot_expected_running": 0,
             "gpu_spot_idle_cost_usd": 0.0,

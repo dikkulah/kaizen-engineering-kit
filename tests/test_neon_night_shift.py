@@ -336,6 +336,52 @@ class TestNeonNightShift(unittest.TestCase):
             self.assertEqual(gen_cfg["thinkingConfig"]["thinkingLevel"], "MINIMAL")
             self.assertIn("responseJsonSchema", gen_cfg)
 
+    def test_frontier_batch_lanes_openai_and_anthropic(self) -> None:
+        tasks = [
+            nns.NightShiftTask(
+                task_id="openai_task_001",
+                title="OpenAI Batch Summarization",
+                prompt="Summarize distributed cache invalidation strategies.",
+                mode="openai_batch",
+                model="gpt-5.4",
+                system_instruction="Be concise and return Markdown bullets.",
+            ),
+            nns.NightShiftTask(
+                task_id="anthropic_task_002",
+                title="Anthropic Batch Code Review",
+                prompt="Review Clean Architecture dependency inversion in Rust.",
+                mode="anthropic_batch",
+                model="claude-sonnet-5-5",
+                max_output_tokens=2048,
+            ),
+            nns.NightShiftTask(
+                task_id="openai_inferred_003",
+                title="OpenAI Inferred Batch Task",
+                prompt="Analyze lock-free queue benchmarks.",
+                mode="batch",
+                model="gpt-5",
+            ),
+        ]
+        plan = nns.plan_night_shift(tasks)
+        self.assertEqual(plan["lanes"]["openai_batch"]["task_count"], 2)
+        self.assertEqual(plan["lanes"]["anthropic_batch"]["task_count"], 1)
+        self.assertEqual(plan["lanes"]["gemini_batch"]["task_count"], 0)
+        self.assertEqual(len(plan["openai_batch_jsonl_preview"]), 2)
+        self.assertEqual(len(plan["anthropic_batch_jsonl_preview"]), 1)
+
+        # Validate OpenAI JSONL structure
+        first_openai_line = json.loads(plan["openai_batch_jsonl_preview"][0])
+        self.assertEqual(first_openai_line["custom_id"], "openai_task_001")
+        self.assertEqual(first_openai_line["method"], "POST")
+        self.assertEqual(first_openai_line["url"], "/v1/chat/completions")
+        self.assertEqual(first_openai_line["body"]["model"], "gpt-5.4")
+
+        # Validate Anthropic JSONL structure
+        first_anthropic_line = json.loads(plan["anthropic_batch_jsonl_preview"][0])
+        self.assertEqual(first_anthropic_line["custom_id"], "anthropic_task_002")
+        self.assertEqual(first_anthropic_line["params"]["model"], "claude-sonnet-5-5")
+        self.assertEqual(first_anthropic_line["params"]["max_tokens"], 2048)
+
 
 if __name__ == "__main__":
     unittest.main()
