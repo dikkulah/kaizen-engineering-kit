@@ -104,7 +104,7 @@ python3 install.py --target claude
 ```bash
 export KAIZEN_PROVIDER="anthropic"
 export ANTHROPIC_API_KEY="sk-ant-..."
-export KAIZEN_DEFAULT_MODEL="claude-sonnet-4-20250514"
+export KAIZEN_DEFAULT_MODEL="claude-sonnet-5-5"
 ```
 
 ### Generated Hook & MCP Entry (`~/.claude/settings.json`)
@@ -160,13 +160,13 @@ kaizen-kit install --target codex
 ```bash
 export KAIZEN_PROVIDER="openai"
 export OPENAI_API_KEY="sk-proj-..."
-export KAIZEN_DEFAULT_MODEL="gpt-4.1"
+export KAIZEN_DEFAULT_MODEL="gpt-5.4"
 export KAIZEN_REASONING_MODEL="o3"
 ```
 
 ### `~/.codex/config.toml` Snippet
 ```toml
-model = "gpt-4.1"
+model = "gpt-5.3-codex"
 approval_policy = "on-request"
 
 [mcp_servers.kaizen_kit]
@@ -186,8 +186,8 @@ Use `kaizen-engineering-kit` programmatically or via CLI with any OpenAI API key
 export KAIZEN_PROVIDER="openai"
 export OPENAI_API_KEY="sk-proj-..."
 export OPENAI_BASE_URL="https://api.openai.com/v1"
-export KAIZEN_DEFAULT_MODEL="gpt-4o"
-export KAIZEN_FAST_MODEL="gpt-4o-mini"
+export KAIZEN_DEFAULT_MODEL="gpt-5.4"
+export KAIZEN_FAST_MODEL="gpt-5-mini"
 ```
 
 ### Verify Routing & Run the 5-Stage Cascade

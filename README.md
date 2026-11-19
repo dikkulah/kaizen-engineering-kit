@@ -62,21 +62,21 @@ ollama pull qwen3-coder:30b-a3b
 kaizen-kit check .
 ```
 
-#### (B) OpenAI / Codex CLI (`gpt-4.1` / `gpt-4o` / `o3`)
+#### (B) OpenAI / Codex CLI (`gpt-5.4` / `gpt-5.3-codex` / `gpt-5` / `o3`)
 ```bash
 export KAIZEN_PROVIDER="openai"
 export OPENAI_API_KEY="sk-proj-..."
-export KAIZEN_DEFAULT_MODEL="gpt-4.1"
+export KAIZEN_DEFAULT_MODEL="gpt-5.4"
 
 python3 install.py --harness codex
 kaizen-kit check .
 ```
 
-#### (C) Anthropic / Claude Code (`claude-sonnet` / `claude-opus`)
+#### (C) Anthropic / Claude Code (`claude-sonnet-5-5` / `claude-opus-5-5` / `claude-haiku-5-5`)
 ```bash
 export KAIZEN_PROVIDER="anthropic"
 export ANTHROPIC_API_KEY="sk-ant-..."
-export KAIZEN_DEFAULT_MODEL="claude-sonnet-4-20250514"
+export KAIZEN_DEFAULT_MODEL="claude-sonnet-5-5"
 
 python3 install.py --target claude
 kaizen-kit check .
@@ -143,7 +143,7 @@ Distilled, token-dense architectural references accessible offline via `kaizen-k
 | **Layer 0/B — Hybrid RAG & Document OCR** | `bge-m3`, `qwen3-embed-0.6b`, `qwen3-reranker-0.6b`, `granite-docling-258m`, `docling-v2`, `olmocr-2-7b`, `gemma-4-12b-unified` | Reciprocal Rank Fusion (BM25 + 1-bit AST sketch + dense embeddings) + cross-encoder reranking + PDF/screenshot parsing. |
 | **Layer 1 — Fast Triage & Structured JSON** | `qwen3.5-4b`, `ling-mini-2.0`, `glm-4.7-flash` | Constrained JSON/diff extraction (`XGrammar`/`GBNF`), file selection, Voice-to-Action parsing, and **AutoDream** consolidation. |
 | **Layer 2 — Primary Sparse-MoE Coders** | `qwen3-coder-30b-a3b` *(3B active/tok)*, `qwen3.5-35b-a3b` *(3B active/tok)*, `gemma-4-26b-a4b` | High-throughput CPU (`m7g` / `llama.cpp`) & GPU (`vLLM`) code generation, refactoring, RCA, and 3-judge disjoint PoLL juries. |
-| **Layer 3 — Frontier / Cloud APIs (Optional)** | OpenAI (`gpt-5`, `gpt-4.1`, `o3`), Anthropic (`claude-sonnet-4`, `claude-opus-4`), Gemini (`gemini-4-neon`, `gemini-4-carbon`, `gemini-decision-1`), Bedrock | Escalated only when `ExecutionOracleGate` fails or tasks require deep multi-repo synthesis (`DataResidencyGate` blocks confidential code from public APIs). |
+| **Layer 3 — Frontier / Cloud APIs (Optional)** | OpenAI (`gpt-5.4`, `gpt-5.3-codex`, `gpt-5`, `o3`, `o4-mini`, `gpt-4.1`), Anthropic (`claude-sonnet-5-5`, `claude-opus-5-5`, `claude-haiku-5-5`, `claude-fable-5`, `claude-*-4`), Gemini (`gemini-4-neon`, `gemini-4-carbon`, `gemini-4-argon`, `gemini-4-hydrogen`, `gemini-decision-1`), Bedrock, OpenAI-Compat (`deepseek-v3`/`r1`, `grok-code-fast`, `openrouter/*`) | Escalated only when `ExecutionOracleGate` fails or tasks require deep multi-repo synthesis (`DataResidencyGate` blocks confidential code from public APIs). |
 | **Layer 4/5 — Ephemeral Spot GPU & RPC** | `Qwen3-235B-A22B` (`distributed_256gb` `llama.cpp` RPC), `Qwen3-32B-AWQ`, **5-Adapter MoE LoRA Portfolio** | Scale-to-zero (`$0` idle) Spot burst for 235B deep audits and Best-of-N QLoRA training (`lora-java-spring-craft`, `lora-rust-vector-parity`, `lora-vue-dashboard-ui`, `lora-system-rca-triage`, `lora-openapi-contract-guard`). |
 
 ---

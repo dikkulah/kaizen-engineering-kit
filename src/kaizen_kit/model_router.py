@@ -69,8 +69,8 @@ PROVIDER_NAME_ALIASES: Dict[str, str] = {
 }
 
 DEFAULT_PROVIDER_MODELS: Dict[str, str] = {
-    "openai": "gpt-4.1",
-    "anthropic": "claude-sonnet-4",
+    "openai": "gpt-5.4",
+    "anthropic": "claude-sonnet-5-5",
     "ollama": "ollama/qwen3.5-4b",
     "openai_compat": "openai_compat/qwen3.5-4b",
     "ec2_litellm": "qwen3.5-4b",
@@ -79,16 +79,28 @@ DEFAULT_PROVIDER_MODELS: Dict[str, str] = {
 }
 
 OPENAI_ALIASES: Dict[str, str] = {
+    "gpt-5.4": "gpt-5.4",
+    "gpt-5.3-codex": "gpt-5.3-codex",
+    "gpt-5.2-codex": "gpt-5.2-codex",
     "gpt-5": "gpt-5",
+    "gpt-5-mini": "gpt-5-mini",
     "gpt-4.1": "gpt-4.1",
     "gpt-4.1-mini": "gpt-4.1-mini",
     "o3": "o3",
     "o4-mini": "o4-mini",
     "codex-mini-latest": "codex-mini-latest",
-    "chatgpt": "gpt-4.1",
+    "gpt-oss-120b": "gpt-oss-120b",
+    "chatgpt": "gpt-5.4",
 }
 
 ANTHROPIC_ALIASES: Dict[str, str] = {
+    "claude-sonnet-5-5": "claude-sonnet-5-5",
+    "claude-opus-5-5": "claude-opus-5-5",
+    "claude-haiku-5-5": "claude-haiku-5-5",
+    "claude-fable-5": "claude-fable-5",
+    "claude-5.5-sonnet": "claude-sonnet-5-5",
+    "claude-5.5-opus": "claude-opus-5-5",
+    "claude-5.5-haiku": "claude-haiku-5-5",
     "claude-sonnet-4": "claude-sonnet-4",
     "claude-opus-4": "claude-opus-4",
     "claude-haiku-4": "claude-haiku-4",
@@ -98,11 +110,15 @@ ANTHROPIC_ALIASES: Dict[str, str] = {
 }
 
 OLLAMA_ALIASES: Dict[str, str] = {
+    "qwen3.5-4b": "qwen3.5-4b",
+    "qwen3-coder-30b-a3b": "qwen3-coder-30b-a3b",
+    "qwen3.5-35b-a3b": "qwen3.5-35b-a3b",
+    "gemma-4-26b-a4b": "gemma-4-26b-a4b",
     "llama3.3": "llama3.3",
-    "llama3.2": "llama3.2",
     "codestral": "codestral",
-    "qwen2.5-coder": "qwen2.5-coder",
-    "deepseek-coder-v2": "deepseek-coder-v2",
+    "devstral-small": "devstral-small",
+    "deepseek-v3": "deepseek-v3",
+    "deepseek-r1": "deepseek-r1",
 }
 
 OPENAI_COMPAT_PREFIXES: Tuple[str, ...] = (
