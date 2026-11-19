@@ -133,6 +133,41 @@ Distilled, token-dense architectural references accessible offline via `kaizen-k
 
 ---
 
+## Model Matrix & Routing Strategy
+
+`kaizen-engineering-kit` uses a **6-layer Sparse-MoE + Micro-Model Army** (`kaizen_kit.carbon_orchestrator`) so everyday coding, triage, guardrails, and memory consolidation run cheaply on CPU/local GPUs while only hard architectural or unresolved escalations hit frontier APIs.
+
+| Layer / Role | Active Models | How It Is Used |
+| :--- | :--- | :--- |
+| **Layer 0 — Micro Classifiers, Safety & Voice** | `qwen3-guard-0.6b`, `qwen3-guard-stream-0.6b`, `granite-4-h-tiny`, `bitnet-2b`, `whisper-large-v3-turbo`, `kokoro-82m` | Sub-50ms input/output/streaming secret & prompt-injection rails, tool-call arg inspection, and local Hybrid-VAD ASR/TTS. |
+| **Layer 0/B — Hybrid RAG & Document OCR** | `bge-m3`, `qwen3-embed-0.6b`, `qwen3-reranker-0.6b`, `granite-docling-258m`, `docling-v2`, `olmocr-2-7b`, `gemma-4-12b-unified` | Reciprocal Rank Fusion (BM25 + 1-bit AST sketch + dense embeddings) + cross-encoder reranking + PDF/screenshot parsing. |
+| **Layer 1 — Fast Triage & Structured JSON** | `qwen3.5-4b`, `ling-mini-2.0`, `glm-4.7-flash` | Constrained JSON/diff extraction (`XGrammar`/`GBNF`), file selection, Voice-to-Action parsing, and **AutoDream** consolidation. |
+| **Layer 2 — Primary Sparse-MoE Coders** | `qwen3-coder-30b-a3b` *(3B active/tok)*, `qwen3.5-35b-a3b` *(3B active/tok)*, `gemma-4-26b-a4b` | High-throughput CPU (`m7g` / `llama.cpp`) & GPU (`vLLM`) code generation, refactoring, RCA, and 3-judge disjoint PoLL juries. |
+| **Layer 3 — Frontier / Cloud APIs (Optional)** | OpenAI (`gpt-5`, `gpt-4.1`, `o3`), Anthropic (`claude-sonnet-4`, `claude-opus-4`), Gemini (`gemini-4-neon`, `gemini-4-carbon`, `gemini-decision-1`), Bedrock | Escalated only when `ExecutionOracleGate` fails or tasks require deep multi-repo synthesis (`DataResidencyGate` blocks confidential code from public APIs). |
+| **Layer 4/5 — Ephemeral Spot GPU & RPC** | `Qwen3-235B-A22B` (`distributed_256gb` `llama.cpp` RPC), `Qwen3-32B-AWQ`, **5-Adapter MoE LoRA Portfolio** | Scale-to-zero (`$0` idle) Spot burst for 235B deep audits and Best-of-N QLoRA training (`lora-java-spring-craft`, `lora-rust-vector-parity`, `lora-vue-dashboard-ui`, `lora-system-rca-triage`, `lora-openapi-contract-guard`). |
+
+---
+
+## AutoDream & MIRIX Continual Memory Consolidation
+
+Instead of repeating the same debugging dead-ends across sessions, `kaizen-engineering-kit` combines **MIRIX Multi-Store Memory** (`kaizen_kit.mirix_memory`), **Hansei Ledger** (`kaizen_kit.gates.hansei_ledger`), and **AutoDream** (`ling-mini-2.0` via FastMCP `memory_autodream`):
+
+```mermaid
+flowchart LR
+    S["Coding Session / Hook Traces"] -->|"Tool Failures and Fixes"| HANSEI["Hansei Ledger and DEAD_ENDS.md"]
+    S -->|"Episodic Facts"| MIRIX["MIRIX Memory Stores"]
+    HANSEI --> DREAM["AutoDream Consolidator: ling-mini-2.0"]
+    MIRIX --> DREAM
+    DREAM -->|"Deduplicates and Distills Rules"| RULES["Compact SessionStart Briefing"]
+    RULES -->|"Injected via CAPC Suffix"| NEXT["Next Agent Session across Any Harness"]
+```
+
+- **Zero-Repeat Dead Ends (`DEAD_ENDS.md`)**: Failed hypotheses, broken flags, and hardware/quota traps are logged once and injected at `SessionStart` so subsequent sessions never re-hit the same trap.
+- **Sleep-Cycle Consolidation (`memory_autodream`)**: Periodically prunes stale episodic entries, merges duplicate architectural lessons into `kaizen_ledger.json`, and keeps the injected briefing under strict token budgets.
+- **Night-Shift Autonomous Runs (`kaizen-kit night-shift`)**: Partitions queued tasks automatically—keeping confidential work on local OSS/MoE workers while routing sanitized batch work to `Decision-1` / `Batch` / `Flex` lanes with `$0` idle GPU cost.
+
+---
+
 ## CLI Reference (`kaizen-kit`)
 
 | Command | Description | Example |
