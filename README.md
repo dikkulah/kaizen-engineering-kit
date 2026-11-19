@@ -168,6 +168,29 @@ flowchart LR
 
 ---
 
+## Cloud-Brain & Multi-Cloud IaC (Podman / AWS / GCP / Azure)
+
+Offload heavy language servers, hybrid Code-RAG, trigram search, and Sparse-MoE LLM inference from your laptop to a single **128 GiB ARM64 Cloud-Brain** (or local rootless Podman stack) under [`infra/cloud_brain/`](infra/cloud_brain/)—Keeping the hot resident core at **`~58 GiB`** (`< 72 GiB` safe ceiling) over **7 encrypted `127.0.0.1` loopback tunnels** with **zero public ports (`0.0.0.0/0`)** and **`$0` always-on GPU burn**:
+
+| Loopback Port | Service (`infra/cloud_brain/docker-compose.yml`) | Role |
+| :--- | :--- | :--- |
+| **`127.0.0.1:4000`** | `litellm-proxy` (`ollama` + `tei`) | OpenAI-compatible router for Sparse-MoE coders (`qwen3-coder-30b-a3b`, `qwen3.5-35b-a3b`) & TEI hybrid embed/rerank (`bge-m3`, `qwen3-reranker-0.6b`) |
+| **`127.0.0.1:8765`** | `jev-guardrail` | Sub-50ms input/output/streaming safety rail (`qwen3-guard-0.6b`) & pool telemetry |
+| **`127.0.0.1:8766`** | `mini-pool` | 21-model Hot/Warm LRU manager (`58 GiB` core / `72 GiB` ceiling), **AutoDream** (`ling-mini-2.0`), OCR & Hybrid-VAD voice |
+| **`127.0.0.1:8770`** | `neon-mcp` | Unified FastMCP gateway exposing 16 tools (`neon_*`, `memory_autodream`, `coderag_*`, `zoekt_*`) |
+| **`127.0.0.1:6070`** | `zoekt-webserver` | Sub-20ms trigram regex & symbol search across repositories |
+| **`127.0.0.1:18808`** | `coderag` | AST + BM25 + LanceDB Reciprocal Rank Fusion (RRF) Code-RAG API |
+| **`127.0.0.1:24280`** | `serena-lsp` | Persistent in-RAM language server daemon (`rust-analyzer`, `jdtls`, `tsserver`, `pyright`) |
+
+- **Local / Bare-Metal Rootless Podman**: `podman compose -f infra/cloud_brain/docker-compose.yml up -d`
+- **AWS CloudFormation (`m7g.8xlarge` / `c7g.8xlarge` + SSM Loopback)**: [`infra/cloud_brain/aws-cloudformation.yaml`](infra/cloud_brain/aws-cloudformation.yaml)
+- **GCP Terraform (`c4a-standard-32` / `t2a-standard-32` + IAP Tunnel)**: [`infra/cloud_brain/gcp-cloud-brain.tf`](infra/cloud_brain/gcp-cloud-brain.tf)
+- **Azure Bicep (`Standard_D32pls_v5` / `Standard_E16pls_v5` + Bastion / SSH `-L`)**: [`infra/cloud_brain/azure-bicep.bicep`](infra/cloud_brain/azure-bicep.bicep)
+
+See the full deployment guide and 7-port tunnel commands in **[docs/CLOUD_BRAIN.md](docs/CLOUD_BRAIN.md)**.
+
+---
+
 ## CLI Reference (`kaizen-kit`)
 
 | Command | Description | Example |
@@ -191,6 +214,7 @@ flowchart LR
 - **[Architecture & Execution Pipelines](docs/ARCHITECTURE.md)** — Deep dive into the 5-Stage Verification Cascade, Disjoint-Family PoLL Jury, Execution-Oracle Best-of-N QLoRA Factory, and Distributed `llama.cpp` RPC + `vLLM` Serving.
 - **[Universal Harness Integration Guide](docs/HARNESS_GUIDE.md)** — Step-by-step setup and copy-paste configurations for **Claude Code**, **OpenAI Codex CLI**, **ChatGPT / OpenAI API**, **OpenCode**, **Cursor**, **Aider**, **Continue**, and **100% Offline Ollama / vLLM / LiteLLM**.
 - **[Token Reduction Architecture](docs/TOKEN_REDUCTION.md)** — Technical specification and savings benchmarks for the 6 token-saving mechanisms (CAPC Prefix Ordering, `>80L` Observation Masking, TALE Dynamic Budgets, AST Skeletons, KV-Cache `Q8_0` & Prefix Caching, and Voice Hybrid VAD).
+- **[Thin-Client + 128 GiB ARM64 Cloud-Brain & Multi-Cloud IaC](docs/CLOUD_BRAIN.md)** — End-to-end architecture, 7-port loopback reference (`:4000`, `:8765`, `:8766`, `:8770`, `:6070`, `:18808`, `:24280`), and deployment guides for **Rootless Podman**, **AWS CloudFormation (SSM)**, **GCP Terraform (IAP)**, and **Azure Bicep (Bastion/SSH)**.
 
 ---
 

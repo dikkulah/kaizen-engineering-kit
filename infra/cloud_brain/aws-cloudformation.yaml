@@ -1,0 +1,255 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  Kaizen Cloud-Brain (AWS Graviton3 ARM64, 128 GiB RAM) — Rootless Podman 7-Port
+  Loopback Stack (:4000 LiteLLM Sparse-MoE, :8765 Guardrail, :8766 TEI Embed/Rerank,
+  :8770 FastMCP Gateway, :6070 Zoekt, :18808 Code-RAG, :24280 Serena LSP) with
+  ZERO public inbound ports (AWS SSM Session Manager port forwarding only).
+
+Parameters:
+  InstanceType:
+    Type: String
+    Default: m7g.8xlarge
+    AllowedValues:
+      - m7g.8xlarge
+      - c7g.8xlarge
+      - r7g.4xlarge
+      - r7g.8xlarge
+      - m6g.8xlarge
+      - m7i.8xlarge
+    Description: >-
+      EC2 instance size. Default m7g.8xlarge (32 vCPU Graviton3 ARM64, 128 GiB RAM)
+      comfortably fits the ~58 GiB Sparse-MoE resident core (< 72 GiB ceiling) + LSP/RAG caches.
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: Target VPC ID where the Cloud-Brain SecurityGroup will be created.
+
+  SubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: Target Subnet ID with outbound HTTPS connectivity (NAT Gateway or VPC Endpoints) for SSM.
+
+  DiskSizeGb:
+    Type: Number
+    Default: 250
+    MinValue: 100
+    MaxValue: 2000
+    Description: Encrypted GP3 root EBS volume size in GiB for GGUF Sparse-MoE weights, Zoekt, and LanceDB.
+
+  S3ModelBucket:
+    Type: String
+    Default: ''
+    Description: Optional S3 bucket name hosting pre-staged GGUF weights under models/ (leave empty to skip).
+
+  EnableIdleGuard:
+    Type: String
+    Default: 'true'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Description: Automatically stop the EBS-backed EC2 instance when all 7 tunnels and CPU are idle.
+
+  IdleTimeoutMinutes:
+    Type: Number
+    Default: 45
+    MinValue: 15
+    MaxValue: 720
+    Description: Consecutive idle minutes before kaizen-idle-guard.timer powers down (stops) the instance.
+
+  AssociatePublicIp:
+    Type: String
+    Default: 'false'
+    AllowedValues:
+      - 'false'
+      - 'true'
+    Description: Keep false for private subnets with NAT/SSM VPC endpoints; SecurityGroup always has zero inbound rules.
+
+  BootstrapRepoUrl:
+    Type: String
+    Default: https://github.com/kaizen-kit/kaizen-engineering-kit.git
+    Description: Git repository URL containing infra/cloud_brain/bootstrap-cloud-brain.sh and docker-compose.yml.
+
+  BootstrapRepoRef:
+    Type: String
+    Default: main
+    Description: Git branch or tag to check out during bootstrap.
+
+  UbuntuArm64AmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/canonical/ubuntu/server/24.04/stable/current/arm64/hvm/ebs-gp3/ami-id
+    Description: Canonical SSM parameter resolving the latest Ubuntu 24.04 LTS ARM64 GP3 AMI in the stack region.
+
+Conditions:
+  HasS3ModelBucket: !Not [!Equals [!Ref S3ModelBucket, '']]
+  AssignPublicIp: !Equals [!Ref AssociatePublicIp, 'true']
+
+Resources:
+  CloudBrainSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Kaizen Cloud-Brain — ZERO inbound rules; AWS SSM Session Manager outbound HTTPS only.
+      VpcId: !Ref VpcId
+      # SecurityGroupIngress is intentionally omitted: zero public or VPC inbound ports open.
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: Outbound HTTPS for AWS SSM Session Manager, S3, GHCR, and HuggingFace Hub
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: Outbound HTTP for Ubuntu package mirror metadata
+        - IpProtocol: udp
+          FromPort: 53
+          ToPort: 53
+          CidrIp: 0.0.0.0/0
+          Description: Outbound DNS resolution (UDP)
+        - IpProtocol: tcp
+          FromPort: 53
+          ToPort: 53
+          CidrIp: 0.0.0.0/0
+          Description: Outbound DNS resolution (TCP)
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-cloud-brain-sg'
+        - Key: ManagedBy
+          Value: kaizen-engineering-kit
+
+  CloudBrainIamRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Description: Least-privilege IAM role for Kaizen Cloud-Brain (SSM Session Manager + optional S3 model read).
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore'
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-cloud-brain-role'
+        - Key: ManagedBy
+          Value: kaizen-engineering-kit
+
+  CloudBrainS3ModelReadPolicy:
+    Type: AWS::IAM::Policy
+    Condition: HasS3ModelBucket
+    Properties:
+      PolicyName: kaizen-cloud-brain-s3-models-read
+      Roles:
+        - !Ref CloudBrainIamRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: ListModelBucket
+            Effect: Allow
+            Action:
+              - s3:ListBucket
+            Resource:
+              - !Sub 'arn:${AWS::Partition}:s3:::${S3ModelBucket}'
+          - Sid: ReadModelAndWorkspaceObjects
+            Effect: Allow
+            Action:
+              - s3:GetObject
+            Resource:
+              - !Sub 'arn:${AWS::Partition}:s3:::${S3ModelBucket}/*'
+
+  CloudBrainInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref CloudBrainIamRole
+
+  CloudBrainInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref UbuntuArm64AmiId
+      InstanceType: !Ref InstanceType
+      IamInstanceProfile: !Ref CloudBrainInstanceProfile
+      # When kaizen-idle-guard.timer calls systemctl poweroff, stop (never terminate) the EBS volume.
+      InstanceInitiatedShutdownBehavior: stop
+      Monitoring: true
+      MetadataOptions:
+        HttpEndpoint: enabled
+        HttpTokens: required
+        HttpPutResponseHopLimit: 1
+      NetworkInterfaces:
+        - DeviceIndex: '0'
+          SubnetId: !Ref SubnetId
+          AssociatePublicIpAddress: !If [AssignPublicIp, true, false]
+          GroupSet:
+            - !Ref CloudBrainSecurityGroup
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeType: gp3
+            VolumeSize: !Ref DiskSizeGb
+            Iops: 3000
+            Throughput: 250
+            Encrypted: true
+            DeleteOnTermination: false
+      UserData:
+        Fn::Base64: !Sub |
+          #!/usr/bin/env bash
+          set -Eeuo pipefail
+          export DEBIAN_FRONTEND=noninteractive
+
+          apt-get update -qq
+          apt-get install -y --no-install-recommends ca-certificates curl git awscli
+
+          STAGE_DIR="/opt/kaizen-cloud-brain-src"
+          rm -rf "${!STAGE_DIR}"
+          git clone --depth 1 --branch "${BootstrapRepoRef}" "${BootstrapRepoUrl}" "${!STAGE_DIR}"
+
+          export KAIZEN_BIND_ADDR="127.0.0.1"
+          export KAIZEN_WORKSPACE="/work-space"
+          export KAIZEN_MODELS_DIR="/var/lib/kaizen/models"
+          export KAIZEN_S3_MODEL_BUCKET="${S3ModelBucket}"
+          export KAIZEN_ENABLE_IDLE_GUARD="${EnableIdleGuard}"
+          export KAIZEN_IDLE_MINUTES="${IdleTimeoutMinutes}"
+          export KAIZEN_REPO_URL="${BootstrapRepoUrl}"
+          export KAIZEN_REPO_REF="${BootstrapRepoRef}"
+
+          bash "${!STAGE_DIR}/infra/cloud_brain/bootstrap-cloud-brain.sh"
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-cloud-brain'
+        - Key: Role
+          Value: kaizen-cloud-brain
+        - Key: ManagedBy
+          Value: kaizen-engineering-kit
+
+Outputs:
+  InstanceId:
+    Description: EC2 Instance ID for AWS SSM Session Manager 7-port loopback forwarding.
+    Value: !Ref CloudBrainInstance
+
+  PrivateIp:
+    Description: Private VPC IPv4 address of the Cloud-Brain host.
+    Value: !GetAtt CloudBrainInstance.PrivateIp
+
+  SecurityGroupId:
+    Description: Zero-inbound SecurityGroup ID protecting the Cloud-Brain instance.
+    Value: !Ref CloudBrainSecurityGroup
+
+  IamRoleArn:
+    Description: IAM Role ARN attached to the Cloud-Brain instance profile.
+    Value: !GetAtt CloudBrainIamRole.Arn
+
+  SsmTunnelFastMcpCommand:
+    Description: Forward the unified FastMCP Gateway (:8770) to local 127.0.0.1:8770 via AWS SSM.
+    Value: !Sub >-
+      aws ssm start-session --region ${AWS::Region} --target ${CloudBrainInstance}
+      --document-name AWS-StartPortForwardingSession
+      --parameters '{"portNumber":["8770"],"localPortNumber":["8770"]}'
+
+  SsmTunnelLiteLlmCommand:
+    Description: Forward the LiteLLM 4-Worker Sparse-MoE router (:4000) to local 127.0.0.1:4000 via AWS SSM.
+    Value: !Sub >-
+      aws ssm start-session --region ${AWS::Region} --target ${CloudBrainInstance}
+      --document-name AWS-StartPortForwardingSession
+      --parameters '{"portNumber":["4000"],"localPortNumber":["4000"]}'

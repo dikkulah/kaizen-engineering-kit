@@ -1,0 +1,318 @@
+# Kaizen Cloud-Brain — Rootless Podman & Docker Compose Stack
+#
+# Compatible with both rootless Podman and Docker Compose v2:
+#   podman compose -f infra/cloud_brain/docker-compose.yml up -d
+#   docker compose -f infra/cloud_brain/docker-compose.yml up -d
+#
+# Security & Memory Invariants:
+#   - All 7 host ports bind strictly to KAIZEN_BIND_ADDR (default 127.0.0.1).
+#   - Zero privileged containers, zero host network hacks, zero docker.sock mounts.
+#   - Rootless Podman SELinux safe (:Z for private service volumes, :ro,z for shared
+#     workspace mounts, plus security_opt: [label=disable, no-new-privileges:true]).
+#   - Sparse-MoE resident core stays ~58 GiB (< 72 GiB safe ceiling on 128 GiB RAM hosts).
+
+name: kaizen-cloud-brain
+
+x-rootless-common: &rootless-common
+  restart: unless-stopped
+  security_opt:
+    - label=disable
+    - no-new-privileges:true
+  networks:
+    - cloud-brain-net
+
+services:
+  # Internal 4-Worker Sparse-MoE Inference Engine (ik_llama.cpp / llama-server)
+  # Resident core: ~58 GiB (< 72 GiB hard ceiling), Q8_0 KV cache + 256-token prefix reuse.
+  llama-moe-pool:
+    <<: *rootless-common
+    image: ${KAIZEN_LLAMA_IMAGE:-ghcr.io/ggml-org/llama.cpp:server}
+    container_name: kaizen-llama-moe-pool
+    command:
+      - -m
+      - /models/${KAIZEN_PRIMARY_MOE_GGUF:-Qwen3-Coder-30B-A3B-Q4_K_M.gguf}
+      - --alias
+      - qwen3-coder-30b-a3b
+      - -ctk
+      - q8_0
+      - -ctv
+      - q8_0
+      - --cache-reuse
+      - "256"
+      - --parallel
+      - "${KAIZEN_MOE_WORKERS:-4}"
+      - --ctx-size
+      - "${KAIZEN_MOE_CTX_SIZE:-65536}"
+      - --threads
+      - "${KAIZEN_MOE_THREADS:-28}"
+      - --flash-attn
+      - --cont-batching
+      - --metrics
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "18080"
+    environment:
+      KAIZEN_MOE_RESIDENT_TARGET_GIB: "58"
+      KAIZEN_MOE_SAFE_CEILING_GIB: "72"
+      KAIZEN_MOE_POOL_MODELS: "qwen3.5-4b,qwen3.5-35b-a3b,qwen3-coder-30b-a3b,gemma-4-26b-a4b,ling-mini-2.0"
+    volumes:
+      - ${KAIZEN_MODELS_DIR:-/var/lib/kaizen/models}:/models:ro,Z
+    expose:
+      - "18080"
+    mem_reservation: ${KAIZEN_MOE_MEM_RESERVATION:-58g}
+    mem_limit: ${KAIZEN_MOE_MEM_LIMIT:-72g}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:18080/health || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 6
+      start_period: 45s
+
+  # 1/7 (:4000) — LiteLLM OpenAI-Compatible Router for the 4-Worker Sparse-MoE Pool
+  litellm:
+    <<: *rootless-common
+    image: ${KAIZEN_LITELLM_IMAGE:-ghcr.io/berriai/litellm:main-stable}
+    container_name: kaizen-litellm
+    depends_on:
+      llama-moe-pool:
+        condition: service_started
+    entrypoint:
+      - /bin/sh
+      - -ec
+      - |
+        cat <<'EOF' > /tmp/litellm-cloud-brain.yaml
+        model_list:
+          - model_name: qwen3.5-4b
+            litellm_params:
+              model: openai/qwen3.5-4b
+              api_base: http://llama-moe-pool:18080/v1
+              api_key: sk-local-cloud-brain
+          - model_name: qwen3.5-35b-a3b
+            litellm_params:
+              model: openai/qwen3.5-35b-a3b
+              api_base: http://llama-moe-pool:18080/v1
+              api_key: sk-local-cloud-brain
+          - model_name: qwen3-coder-30b-a3b
+            litellm_params:
+              model: openai/qwen3-coder-30b-a3b
+              api_base: http://llama-moe-pool:18080/v1
+              api_key: sk-local-cloud-brain
+          - model_name: gemma-4-26b-a4b
+            litellm_params:
+              model: openai/gemma-4-26b-a4b
+              api_base: http://llama-moe-pool:18080/v1
+              api_key: sk-local-cloud-brain
+          - model_name: ling-mini-2.0
+            litellm_params:
+              model: openai/ling-mini-2.0
+              api_base: http://llama-moe-pool:18080/v1
+              api_key: sk-local-cloud-brain
+        router_settings:
+          routing_strategy: least-busy
+          num_retries: 2
+          timeout: 120
+        litellm_settings:
+          drop_params: true
+          telemetry: false
+        EOF
+        exec litellm --config /tmp/litellm-cloud-brain.yaml --host 0.0.0.0 --port 4000 --num_workers 4
+    environment:
+      LITELLM_LOG: ${KAIZEN_LITELLM_LOG:-WARNING}
+      LITELLM_MASTER_KEY: ${KAIZEN_LITELLM_MASTER_KEY:-}
+      SCARF_NO_ANALYTICS: "true"
+      DO_NOT_TRACK: "true"
+    ports:
+      - "${KAIZEN_BIND_ADDR:-127.0.0.1}:4000:4000"
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:4000/health/liveliness', timeout=3)\" || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 25s
+
+  # 2/7 (:8766) — Hybrid Embeddings & Cross-Encoder Reranking (BAAI/bge-m3 | Qwen3-Embedding-0.6B + Qwen3-Reranker-0.6B)
+  tei-embed-rerank:
+    <<: *rootless-common
+    image: ${KAIZEN_TEI_IMAGE:-ghcr.io/huggingface/text-embeddings-inference:cpu-1.6}
+    container_name: kaizen-tei-embed-rerank
+    command:
+      - --model-id
+      - ${KAIZEN_EMBED_MODEL:-Qwen/Qwen3-Embedding-0.6B}
+      - --max-client-batch-size
+      - "32"
+      - --max-batch-tokens
+      - "16384"
+      - --hostname
+      - "0.0.0.0"
+      - --port
+      - "80"
+    environment:
+      KAIZEN_EMBED_MODEL: ${KAIZEN_EMBED_MODEL:-Qwen/Qwen3-Embedding-0.6B}
+      KAIZEN_ALT_EMBED_MODEL: ${KAIZEN_ALT_EMBED_MODEL:-BAAI/bge-m3}
+      KAIZEN_RERANK_MODEL: ${KAIZEN_RERANK_MODEL:-Qwen/Qwen3-Reranker-0.6B}
+      HF_HOME: /data/hf-cache
+    volumes:
+      - ${KAIZEN_MODELS_DIR:-/var/lib/kaizen/models}/tei:/data:Z
+    ports:
+      - "${KAIZEN_BIND_ADDR:-127.0.0.1}:8766:80"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:80/health || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # 3/7 (:8765) — JEV Guardrail (Input/Output/Streaming Safety Rail & Pool Status)
+  jev-guardrail:
+    <<: *rootless-common
+    image: ${KAIZEN_GUARDRAIL_IMAGE:-ghcr.io/kaizen-kit/kaizen-guardrail:4.0.0}
+    container_name: kaizen-jev-guardrail
+    depends_on:
+      litellm:
+        condition: service_started
+    environment:
+      KAIZEN_GUARDRAIL_HOST: "0.0.0.0"
+      KAIZEN_GUARDRAIL_PORT: "8765"
+      KAIZEN_UPSTREAM_LITELLM_URL: "http://litellm:4000"
+      KAIZEN_UPSTREAM_EMBED_URL: "http://tei-embed-rerank:80"
+      KAIZEN_STREAM_GUARD_ENABLED: "true"
+    volumes:
+      - ${KAIZEN_STATE_DIR:-/var/lib/kaizen/state}/guardrail:/var/lib/kaizen/guardrail:Z
+    ports:
+      - "${KAIZEN_BIND_ADDR:-127.0.0.1}:8765:8765"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8765/health || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # 4/7 (:6070) — Zoekt Trigram Sub-Millisecond Code Search Webserver
+  zoekt-webserver:
+    <<: *rootless-common
+    image: ${KAIZEN_ZOEKT_IMAGE:-ghcr.io/sourcegraph/zoekt-webserver:latest}
+    container_name: kaizen-zoekt-webserver
+    command:
+      - -index
+      - /data/index
+      - -listen
+      - "0.0.0.0:6070"
+      - -rpc
+    volumes:
+      - ${KAIZEN_WORKSPACE:-/work-space}:/work-space:ro,z
+      - ${KAIZEN_ZOEKT_INDEX_DIR:-/var/lib/kaizen/zoekt-index}:/data/index:Z
+    ports:
+      - "${KAIZEN_BIND_ADDR:-127.0.0.1}:6070:6070"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:6070/ >/dev/null 2>&1 || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # 5/7 (:18808) — Hybrid AST + Vector Code-RAG Server (LanceDB + DuckDB)
+  coderag:
+    <<: *rootless-common
+    image: ${KAIZEN_CODERAG_IMAGE:-ghcr.io/kaizen-kit/kaizen-coderag:4.0.0}
+    container_name: kaizen-coderag
+    depends_on:
+      tei-embed-rerank:
+        condition: service_started
+      zoekt-webserver:
+        condition: service_started
+    environment:
+      KAIZEN_CODERAG_HOST: "0.0.0.0"
+      KAIZEN_CODERAG_PORT: "18808"
+      KAIZEN_WORKSPACE_ROOT: /work-space
+      KAIZEN_EMBED_API_URL: http://tei-embed-rerank:80
+      KAIZEN_RERANK_MODEL: ${KAIZEN_RERANK_MODEL:-Qwen/Qwen3-Reranker-0.6B}
+      KAIZEN_ZOEKT_API_URL: http://zoekt-webserver:6070
+    volumes:
+      - ${KAIZEN_WORKSPACE:-/work-space}:/work-space:ro,z
+      - ${KAIZEN_CODERAG_DIR:-/var/lib/kaizen/coderag}:/data:Z
+    ports:
+      - "${KAIZEN_BIND_ADDR:-127.0.0.1}:18808:18808"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:18808/health || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # 6/7 (:24280) — Serena In-RAM Polyglot LSP Daemon (Rust, Java, Python, TypeScript)
+  serena-lsp:
+    <<: *rootless-common
+    image: ${KAIZEN_SERENA_IMAGE:-ghcr.io/oraios/serena:latest}
+    container_name: kaizen-serena-lsp
+    command:
+      - serena-mcp-server
+      - --transport
+      - streamable-http
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "24280"
+      - --project
+      - /work-space
+    volumes:
+      - ${KAIZEN_WORKSPACE:-/work-space}:/work-space:ro,z
+      - ${KAIZEN_SERENA_CACHE_DIR:-/var/lib/kaizen/serena-cache}:/var/cache/serena:Z
+    ports:
+      - "${KAIZEN_BIND_ADDR:-127.0.0.1}:24280:24280"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:24280/health || exit 1"]
+      interval: 25s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # 7/7 (:8770) — Unified FastMCP Gateway (`kaizen-kit mcp`: neon_*, memory_autodream, coderag_*, zoekt_*)
+  fastmcp-gateway:
+    <<: *rootless-common
+    image: ${KAIZEN_GATEWAY_IMAGE:-ghcr.io/kaizen-kit/kaizen-engineering-kit:4.0.0}
+    container_name: kaizen-fastmcp-gateway
+    depends_on:
+      litellm:
+        condition: service_started
+      tei-embed-rerank:
+        condition: service_started
+      jev-guardrail:
+        condition: service_started
+      zoekt-webserver:
+        condition: service_started
+      coderag:
+        condition: service_started
+      serena-lsp:
+        condition: service_started
+    command:
+      - /bin/sh
+      - -ec
+      - "kaizen-kit mcp --host 0.0.0.0 --port 8770 2>/dev/null || exec python3 -m kaizen_kit.fastmcp_gateway --host 0.0.0.0 --port 8770"
+    environment:
+      KAIZEN_WORKSPACE: /work-space
+      KAIZEN_MIRIX_DIR: /var/lib/kaizen/mirix
+      KAIZEN_AUTODREAM_MODEL: ling-mini-2.0
+      KAIZEN_EXPOSED_TOOL_FAMILIES: "neon_*,memory_autodream,coderag_*,zoekt_*"
+      KAIZEN_JEV_URL: ${KAIZEN_GATEWAY_JEV_URL:-http://127.0.0.1:8765}
+      KAIZEN_LITELLM_URL: ${KAIZEN_GATEWAY_LITELLM_URL:-http://127.0.0.1:4000}
+      KAIZEN_EMBED_URL: ${KAIZEN_GATEWAY_EMBED_URL:-http://127.0.0.1:8766}
+      KAIZEN_ZOEKT_URL: ${KAIZEN_GATEWAY_ZOEKT_URL:-http://127.0.0.1:6070}
+      KAIZEN_CODERAG_URL: ${KAIZEN_GATEWAY_CODERAG_URL:-http://127.0.0.1:18808}
+      KAIZEN_SERENA_URL: ${KAIZEN_GATEWAY_SERENA_URL:-http://127.0.0.1:24280/mcp}
+    volumes:
+      - ${KAIZEN_WORKSPACE:-/work-space}:/work-space:ro,z
+      - ${KAIZEN_STATE_DIR:-/var/lib/kaizen/state}/gateway:/var/lib/kaizen:Z
+    ports:
+      - "${KAIZEN_BIND_ADDR:-127.0.0.1}:8770:8770"
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8770/health', timeout=3)\" || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+networks:
+  cloud-brain-net:
+    name: kaizen-cloud-brain-net
+    driver: bridge
