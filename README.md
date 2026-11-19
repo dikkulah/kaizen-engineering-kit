@@ -1,58 +1,35 @@
 # Kaizen Engineering Kit v4.0 (`kaizen-engineering-kit`)
 
-**Plug-and-Play Deterministic AI Engineering Toolkit for Claude Code, OpenAI Codex CLI, ChatGPT/OpenAI, OpenCode, Cursor, Aider, Continue, and Local OSS (`Ollama` / `vLLM` / `LiteLLM` / `llama.cpp`) — Zero Cloud-Vendor or Gemini Lock-In.**
+**Plug-and-Play Deterministic AI Engineering Toolkit for Claude Code, OpenAI Codex CLI, ChatGPT/OpenAI, OpenCode, Cursor, Aider, Continue, and Local OSS (`Ollama` / `vLLM` / `LiteLLM` / `llama.cpp`) — Model- and Vendor-Agnostic.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB.svg)](pyproject.toml)
 [![Zero Mandatory Dependencies](https://img.shields.io/badge/Core_CLI-Zero_Mandatory_Deps-success.svg)](install.py)
 [![Offline Local OSS Ready](https://img.shields.io/badge/Local_OSS-Ollama_%7C_vLLM_%7C_llama.cpp-orange.svg)](docs/HARNESS_GUIDE.md)
 
-`kaizen-engineering-kit` transforms stochastic AI coding assistants into deterministic, execution-verified engineering systems. It wraps any local open-weight model or commercial frontier API with **zero-LLM AST/architecture gates**, **65%–88% token-reduction hooks**, **5-stage execution-verified model cascades**, **disjoint-family Panel-of-LLM (PoLL) review juries**, and an **Execution-Oracle Best-of-N QLoRA fine-tuning factory**.
+`kaizen-engineering-kit` transforms stochastic AI coding assistants into deterministic, execution-verified engineering systems. It wraps any local open-weight model or commercial API with **zero-LLM AST/architecture gates**, **65%–88% token-reduction hooks**, **5-stage execution-verified model cascades**, **disjoint-family Panel-of-LLM (PoLL) review juries**, and an **Execution-Oracle Best-of-N QLoRA fine-tuning factory**.
 
 ---
 
 ## Architecture & Plug-and-Play Flow
 
 ```mermaid
-flowchart LR
-    subgraph Harnesses["Developer Harnesses & IDEs"]
-        H1["Claude Code & Cursor"]
-        H2["OpenAI Codex CLI & ChatGPT"]
-        H3["OpenCode, Aider & Continue"]
-        H4["CI/CD & Git Hooks"]
-    end
+flowchart TD
+    H["Developer Harnesses: Claude Code, Codex CLI, OpenCode, Cursor, Aider, Continue"] --> UHA["Universal Hook Adapter and Token-Lean Layer"]
+    UHA -->|"CAPC Prefix + 80L+ Masking + PII Vault"| MR["Vendor-Neutral ModelRouter"]
 
-    subgraph HookLayer["Universal Hook & Token-Lean Guardrail Layer"]
-        UHA["Universal Hook Adapter (PreToolUse / PostToolUse)"]
-        CAPC["CAPC Prefix Cache & >80L Observation Masking"]
-        PII["DeterministicVault (PII & Secret Redaction)"]
-    end
+    MR -->|"Local / Air-Gapped"| OSS["Local OSS: Ollama, vLLM, LiteLLM, llama.cpp RPC"]
+    MR -->|"OpenAI / Anthropic / Cloud"| CLOUD["Frontier APIs: OpenAI, Anthropic, Gemini, Bedrock"]
 
-    subgraph Routing["Vendor-Neutral ModelRouter (Zero Lock-In)"]
-        R_OSS["Local OSS (Ollama / vLLM / LiteLLM / llama.cpp RPC)"]
-        R_OAI["OpenAI API (GPT-4.1 / GPT-4o / o3)"]
-        R_ANT["Anthropic API (Claude Sonnet / Opus / Haiku)"]
-        R_GEM["Optional Hybrid Cloud (Gemini / Bedrock)"]
-    end
+    OSS --> CASC["5-Stage Difficulty Cascade and TALE Token Budget"]
+    CLOUD --> CASC
 
-    subgraph Verification["Execution-Verified Cascade & PoLL Jury"]
-        Casc["5-Stage Difficulty Cascade & TALE Token Budget"]
-        Exec["ExecutionOracleGate (Compiler + Tests + Schema)"]
-        Jury["Disjoint-Family PoLL Jury (3 Independent Judges)"]
-        LoRA["Best-of-N SFT & Hard-Negative DPO QLoRA Factory"]
-    end
+    CASC --> ORACLE["ExecutionOracleGate: Compiler, Tests, JSON Schema / XGrammar"]
+    ORACLE -->|"Pass"| POLL["Disjoint-Family PoLL Review Jury"]
+    ORACLE -->|"Fail"| CASC
 
-    subgraph Gates["Deterministic Quality & Architecture Gates (0 LLM Tokens)"]
-        G1["Clean Code & Cognitive Complexity <= 10"]
-        G2["Clean Architecture & AST Provenance Gate"]
-        G3["Polyglot Refactor Radar (Rust + DuckDB + LanceDB)"]
-        G4["Hansei Continual-Learning Ledger"]
-    end
-
-    Harnesses --> HookLayer
-    HookLayer --> Routing
-    Routing --> Verification
-    Verification --> Gates
+    POLL --> GATES["Deterministic Quality Gates: Clean Code, Arch DAG, Refactor Radar"]
+    ORACLE -.->|"Verified SFT / DPO Pairs"| QLORA["QLoRA Fine-Tuning Factory"]
 ```
 
 ---
@@ -72,16 +49,16 @@ python3 install.py --harness auto
 kaizen-kit doctor --self-test
 ```
 
-### 2. Choose Your Runtime (Zero Gemini Lock-In)
+### 2. Choose Your Runtime (Any Model or Provider)
 
 #### (A) Pure Local OSS (`Ollama` / `vLLM` / `LiteLLM` — 100% Offline, $0 API Cost)
 ```bash
 export KAIZEN_PROVIDER="ollama"
 export KAIZEN_OFFLINE="1"
 export OLLAMA_HOST="http://127.0.0.1:11434"
-export KAIZEN_DEFAULT_MODEL="qwen2.5-coder:32b"
+export KAIZEN_DEFAULT_MODEL="qwen3-coder:30b-a3b"
 
-ollama pull qwen2.5-coder:32b
+ollama pull qwen3-coder:30b-a3b
 kaizen-kit check .
 ```
 
