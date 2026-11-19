@@ -1,0 +1,79 @@
+id: rust-prod-unwrap
+language: Rust
+severity: warning
+message: "[C-CUSTOM-TYPE] Production Rust code uses .unwrap(); prefer ? or explicit Option/Result combinators."
+ignores:
+  - "**/tests/**"
+  - "**/benches/**"
+  - "**/*_test.rs"
+  - "**/build.rs"
+rule:
+  pattern: $EXPR.unwrap()
+  not:
+    inside:
+      kind: mod_item
+      stopBy: end
+      follows:
+        kind: attribute_item
+        regex: "cfg\\(test\\)"
+---
+id: rust-eager-unwrap-or-alloc
+language: Rust
+severity: warning
+message: "[Zero-Muda] Eager heap allocation inside .unwrap_or(...); use .unwrap_or_default() or .unwrap_or_else(|| ...)."
+ignores:
+  - "**/tests/**"
+  - "**/benches/**"
+rule:
+  any:
+    - pattern: $OPT.unwrap_or(String::new())
+    - pattern: $OPT.unwrap_or(Vec::new())
+    - pattern: $OPT.unwrap_or(HashMap::new())
+    - pattern: $OPT.unwrap_or(BTreeMap::new())
+    - pattern: $OPT.unwrap_or(format!($$$ARGS))
+  not:
+    inside:
+      kind: mod_item
+      stopBy: end
+      follows:
+        kind: attribute_item
+        regex: "cfg\\(test\\)"
+---
+id: rust-redundant-clone-view
+language: Rust
+severity: hint
+message: "[Zero-Copy] Redundant .clone() immediately followed by read-only view."
+rule:
+  any:
+    - pattern: $X.clone().as_str()
+    - pattern: $X.clone().is_empty()
+    - pattern: $X.clone().len()
+  not:
+    inside:
+      kind: mod_item
+      stopBy: end
+      follows:
+        kind: attribute_item
+        regex: "cfg\\(test\\)"
+---
+id: java-sequenced-get-first
+language: Java
+severity: warning
+message: "[Core-Java-Guard] Prefer Java 21 SequencedCollection .getFirst() over .get(0)."
+ignores:
+  - "**/src/test/**"
+  - "**/*Test.java"
+rule:
+  pattern: $LIST.get(0)
+fix: $LIST.getFirst()
+---
+id: java-empty-catch
+language: Java
+severity: warning
+message: "[Error-Hygiene] Empty catch block swallows exceptions silently."
+ignores:
+  - "**/src/test/**"
+  - "**/*Test.java"
+rule:
+  pattern: |
+    try { $$$BODY } catch ($EX) {}

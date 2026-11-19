@@ -1,0 +1,53 @@
+id: rust-unwrap-in-prod
+language: Rust
+severity: warning
+message: "Production code uses .unwrap(); prefer ? operator or explicit error context."
+ignores:
+  - "**/tests/**"
+  - "**/benches/**"
+  - "**/*_test.rs"
+  - "**/build.rs"
+rule:
+  pattern: $EXPR.unwrap()
+---
+id: rust-expect-in-prod
+language: Rust
+severity: warning
+message: "Production code uses .expect(); prefer Result propagation unless invariant is proven."
+ignores:
+  - "**/tests/**"
+  - "**/benches/**"
+  - "**/*_test.rs"
+  - "**/build.rs"
+rule:
+  pattern: $EXPR.expect($MSG)
+---
+id: rust-clone-in-loop
+language: Rust
+severity: info
+message: "Calling .clone() inside loop body may indicate avoidable allocation."
+ignores:
+  - "**/tests/**"
+  - "**/*_test.rs"
+rule:
+  pattern: $X.clone()
+  inside:
+    stopBy: end
+    any:
+      - kind: for_expression
+      - kind: while_expression
+      - kind: loop_expression
+---
+id: rust-mutex-unwrap
+language: Rust
+severity: warning
+message: "Locking Mutex/RwLock with .unwrap() propagates poison panics across threads."
+ignores:
+  - "**/tests/**"
+  - "**/*_test.rs"
+rule:
+  any:
+    - pattern: $LOCK.lock().unwrap()
+    - pattern: $LOCK.read().unwrap()
+    - pattern: $LOCK.write().unwrap()
+

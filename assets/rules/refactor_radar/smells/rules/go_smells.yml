@@ -1,0 +1,37 @@
+id: go-unbounded-goroutine
+language: Go
+severity: warning
+message: "Anonymous goroutine lacks ctx.Done() cancellation check; risk of goroutine leak."
+ignores:
+  - "**/*_test.go"
+rule:
+  pattern: |
+    go func($$$ARGS) {
+      $$$BODY
+    }($$$CALL)
+  not:
+    has:
+      stopBy: end
+      pattern: $CTX.Done()
+---
+id: go-defer-in-loop
+language: Go
+severity: error
+message: "defer inside for-loop delays cleanup until enclosing function returns; extract loop body helper."
+ignores:
+  - "**/*_test.go"
+rule:
+  kind: defer_statement
+  inside:
+    stopBy: end
+    kind: for_statement
+---
+id: go-empty-interface-map
+language: Go
+severity: info
+message: "Untyped map[string]interface{} weakens static contracts; prefer typed struct."
+ignores:
+  - "**/*_test.go"
+rule:
+  pattern: map[string]interface{}
+

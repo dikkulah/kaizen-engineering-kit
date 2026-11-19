@@ -1,0 +1,77 @@
+rules:
+  - id: rust-clean-arch-domain-purity
+    languages: [rust]
+    severity: ERROR
+    message: "[CA-DEP-RULE] `domain` layer must remain pure and never import outer layers or AWS/HTTP SDKs."
+    paths:
+      include:
+        - "**/src/domain/**"
+    pattern-either:
+      - pattern: use crate::codecs::$X;
+      - pattern: use crate::cube::$X;
+      - pattern: use crate::ingest::$X;
+      - pattern: use crate::query::$X;
+      - pattern: use crate::rest::$X;
+      - pattern: use aws_sdk_s3::$X;
+      - pattern: use aws_sdk_dynamodb::$X;
+      - pattern: use axum::$X;
+
+  - id: rust-codecs-layer-isolation
+    languages: [rust]
+    severity: ERROR
+    message: "[INV-ISOLATION] `codecs` must remain isolated from `cube`, `ingest`, `query`, and `rest`."
+    paths:
+      include:
+        - "**/src/codecs/**"
+    pattern-either:
+      - pattern: use crate::cube::$X;
+      - pattern: use crate::ingest::$X;
+      - pattern: use crate::query::$X;
+      - pattern: use crate::rest::$X;
+
+  - id: rust-hot-loop-info-log
+    languages: [rust]
+    severity: WARNING
+    message: "[FinOps-Guard] `tracing::info!` inside a loop risks CloudWatch ingestion spikes; downgrade to `debug!` or log summary outside loop."
+    pattern-either:
+      - pattern: |
+          for $ITEM in $ITER {
+            ...
+            tracing::info!(...);
+            ...
+          }
+      - pattern: |
+          while $COND {
+            ...
+            tracing::info!(...);
+            ...
+          }
+
+  - id: java-log-and-throw
+    languages: [java]
+    severity: WARNING
+    message: "[Core-Java-Guard] Log & Throw anti-pattern detected for `$E`; either handle & log OR propagate cleanly."
+    paths:
+      exclude:
+        - "**/src/test/**"
+        - "**/*Test.java"
+    pattern: |
+      catch ($TYPE $E) {
+        ...
+        $LOG.$METHOD(..., $E, ...);
+        ...
+        throw ...;
+      }
+
+  - id: ts-table-wipe-before-await
+    languages: [typescript, javascript]
+    severity: WARNING
+    message: "[UI-State-Guard] Reactive list `$STATE.value = []` wiped before `await` call; retain existing rows until response succeeds."
+    paths:
+      exclude:
+        - "**/*.spec.ts"
+        - "**/*.test.ts"
+    pattern: |
+      $STATE.value = [];
+      ...
+      await $CALL(...);

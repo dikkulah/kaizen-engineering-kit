@@ -1,0 +1,39 @@
+id: rust-inbound-http-axum
+language: Rust
+severity: info
+message: "Axum inbound HTTP route"
+rule:
+  pattern: $ROUTER.route($TARGET, $HANDLER)
+---
+id: rust-inbound-http-actix
+language: Rust
+severity: info
+message: "Actix inbound HTTP route"
+rule:
+  any:
+    - pattern: "#[get($TARGET)]"
+    - pattern: "#[post($TARGET)]"
+    - pattern: "#[put($TARGET)]"
+    - pattern: "#[delete($TARGET)]"
+---
+id: rust-outbound-http-reqwest
+language: Rust
+severity: info
+message: "Reqwest outbound HTTP call"
+rule:
+  any:
+    - pattern: $CLIENT.get($TARGET)
+    - pattern: $CLIENT.post($TARGET)
+    - pattern: $CLIENT.put($TARGET)
+    - pattern: $CLIENT.delete($TARGET)
+---
+id: rust-outbound-sql-sqlx
+language: Rust
+severity: info
+message: "SQLx query"
+rule:
+  any:
+    - pattern: sqlx::query($TARGET)
+    - pattern: sqlx::query_as($TARGET)
+    - pattern: sqlx::query!($TARGET, $$$)
+

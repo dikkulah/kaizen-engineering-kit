@@ -1,0 +1,39 @@
+id: java-inbound-http-spring
+language: Java
+severity: info
+message: "Spring MVC inbound HTTP mapping"
+rule:
+  kind: annotation
+  has:
+    kind: identifier
+    regex: "^(Get|Post|Put|Delete|Patch|Request)Mapping$"
+---
+id: java-inbound-kafka-listener
+language: Java
+severity: info
+message: "Spring Kafka listener"
+rule:
+  kind: annotation
+  has:
+    kind: identifier
+    regex: "^KafkaListener$"
+---
+id: java-outbound-http-feign
+language: Java
+severity: info
+message: "Spring Cloud Feign outbound client"
+rule:
+  kind: annotation
+  has:
+    kind: identifier
+    regex: "^FeignClient$"
+---
+id: java-outbound-sql-jpa
+language: Java
+severity: info
+message: "JPA Entity table or custom query"
+rule:
+  kind: annotation
+  has:
+    kind: identifier
+    regex: "^(Table|Query)$"

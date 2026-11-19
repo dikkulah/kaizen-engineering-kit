@@ -1,0 +1,45 @@
+FROM rust:1-bookworm AS rust-builder
+WORKDIR /build
+COPY crates/radar-core/ .
+RUN cargo build --release --jobs 4
+
+FROM ubuntu:24.04
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update -qq && apt-get install -y -qq --no-install-recommends \
+    git curl ca-certificates build-essential pkg-config libssl-dev \
+    openjdk-21-jdk-headless golang-go python3 python3-pip python3-venv \
+    && rm -rf /var/lib/apt/lists/* \
+    && git config --global --add safe.directory '*'
+
+# 1. rust-analyzer (SCIP)
+RUN curl -fsSL https://github.com/rust-lang/rust-analyzer/releases/latest/download/rust-analyzer-x86_64-unknown-linux-gnu.gz \
+    | gunzip -c - > /usr/local/bin/rust-analyzer && chmod +x /usr/local/bin/rust-analyzer || true
+
+# 2. scip-go & scc (MIT)
+ENV GOPATH=/opt/go
+ENV PATH="${GOPATH}/bin:/usr/local/bin:${PATH}"
+RUN go install github.com/sourcegraph/scip-go/cmd/scip-go@latest || true
+RUN go install github.com/boyter/scc/v3@latest || true
+
+# 3. scip-java (Apache-2.0) via Coursier
+RUN curl -fsSL https://github.com/coursier/launchers/raw/master/cs-x86_64-pc-linux.gz | gzip -d > /usr/local/bin/cs \
+    && chmod +x /usr/local/bin/cs \
+    && cs install --install-dir /usr/local/bin scip-java || true
+
+# 4. Python venv + ast-grep + opengrep + kaizen-engineering-kit[radar]
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:${PATH}"
+RUN pip install --no-cache-dir ast-grep-cli
+RUN pip install --no-cache-dir opengrep || true
+
+COPY --from=rust-builder /build/target/release/radar-core /usr/local/bin/radar-core
+
+WORKDIR /app
+COPY pyproject.toml README.md /app/
+COPY src/ /app/src/
+COPY assets/ /app/assets/
+RUN pip install --no-cache-dir -e "/app[radar]"
+
+ENTRYPOINT ["kaizen-kit", "radar"]
+

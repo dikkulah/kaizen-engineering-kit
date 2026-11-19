@@ -1,0 +1,42 @@
+id: go-inbound-http-std
+language: Go
+severity: info
+message: "Go net/http inbound handler"
+rule:
+  any:
+    - pattern: http.HandleFunc($TARGET, $HANDLER)
+    - pattern: $MUX.HandleFunc($TARGET, $HANDLER)
+---
+id: go-inbound-http-router
+language: Go
+severity: info
+message: "Go Chi/Gin/Echo inbound route"
+rule:
+  any:
+    - pattern: $R.Get($TARGET, $H)
+    - pattern: $R.Post($TARGET, $H)
+    - pattern: $R.Put($TARGET, $H)
+    - pattern: $R.Delete($TARGET, $H)
+    - pattern: $R.GET($TARGET, $H)
+    - pattern: $R.POST($TARGET, $H)
+---
+id: go-outbound-http-client
+language: Go
+severity: info
+message: "Go outbound HTTP request"
+rule:
+  any:
+    - pattern: http.NewRequest($METHOD, $TARGET, $BODY)
+    - pattern: http.NewRequestWithContext($CTX, $METHOD, $TARGET, $BODY)
+---
+id: go-outbound-sql-db
+language: Go
+severity: info
+message: "Go database/sql query"
+rule:
+  any:
+    - pattern: $DB.QueryContext($CTX, $TARGET, $$$)
+    - pattern: $DB.ExecContext($CTX, $TARGET, $$$)
+    - pattern: $DB.Query($TARGET, $$$)
+    - pattern: $DB.Exec($TARGET, $$$)
+

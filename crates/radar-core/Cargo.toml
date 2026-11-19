@@ -1,0 +1,35 @@
+[package]
+name = "radar-core"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "High-performance polyglot (Rust/Java/Go) AST, Git forensics, SCIP graph & Parquet extractor for Refactor Radar"
+
+[dependencies]
+anyhow = "1.0"
+clap = { version = "4.5", features = ["derive"] }
+rayon = "1.10"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+walkdir = "2.5"
+sha2 = "0.10"
+hex = "0.4"
+
+# Polyglot Tree-sitter AST chunking (MIT)
+tree-sitter = "0.24"
+tree-sitter-rust = "0.23"
+tree-sitter-java = "0.23"
+tree-sitter-go = "0.23"
+tree-sitter-typescript = "0.23"
+
+# Sourcegraph SCIP Protobuf reader (Apache-2.0)
+scip = "0.5"
+protobuf = "3.7"
+
+# Apache Arrow & Parquet zero-copy output (Apache-2.0)
+arrow = { version = "53.3", default-features = false, features = ["ipc"] }
+parquet = { version = "53.3", default-features = false, features = ["arrow", "snap", "zstd"] }
+
+[dev-dependencies]
+tempfile = "3.10"
+

@@ -1,0 +1,71 @@
+services:
+  tei-embed:
+    image: ${TEI_IMAGE:-ghcr.io/huggingface/text-embeddings-inference:turing-1.5}
+    command:
+      - --model-id
+      - ${TEI_MODEL_ID:-Qwen/Qwen3-Embedding-0.6B}
+      - --dtype
+      - float16
+      - --max-client-batch-size
+      - "32"
+      - --max-batch-tokens
+      - "16384"
+    volumes:
+      - ${RADAR_CACHE_DIR:-/opt/dlami/nvme/hf_cache}:/data
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    ports:
+      - "127.0.0.1:8081:80"
+
+  vllm-coder:
+    image: vllm/vllm-openai:v0.8.5
+    command:
+      - --model
+      - ${LLM_MODEL:-Qwen/Qwen3.5-4B-AWQ}
+      - --quantization
+      - awq
+      - --dtype
+      - ${VLLM_DTYPE:-float16}
+      - --kv-cache-dtype
+      - ${VLLM_KV_DTYPE:-float16}
+      - --tensor-parallel-size
+      - ${VLLM_TP:-1}
+      - --enable-prefix-caching
+      - --max-model-len
+      - ${VLLM_MAX_LEN:-8192}
+      - --gpu-memory-utilization
+      - ${VLLM_MEM_UTIL:-0.70}
+      - --enforce-eager
+    volumes:
+      - ${RADAR_CACHE_DIR:-/opt/dlami/nvme/hf_cache}:/root/.cache/huggingface
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: ${VLLM_TP:-1}
+              capabilities: [gpu]
+    ports:
+      - "127.0.0.1:8000:8000"
+
+  analyzer:
+    build:
+      context: ../..
+      dockerfile: infra/refactor_radar/Dockerfile.analyzer
+    depends_on:
+      - tei-embed
+      - vllm-coder
+    environment:
+      - EMBED_API_URL=http://tei-embed:80/embed
+      - LLM_API_URL=http://vllm-coder:8000/v1
+      - LLM_MODEL=${LLM_MODEL:-Qwen/Qwen3.5-4B-AWQ}
+      - RADAR_CORE_BIN=/usr/local/bin/radar-core
+    volumes:
+      - ${RADAR_REPOS_DIR:-/opt/dlami/nvme/repos}:/repos:ro
+      - ${RADAR_CAPSULES_DIR:-/opt/dlami/nvme/capsules}:/capsules
+    working_dir: /app

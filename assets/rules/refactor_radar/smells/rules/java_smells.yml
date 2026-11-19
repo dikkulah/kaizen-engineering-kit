@@ -1,0 +1,58 @@
+id: java-transactional-external-io
+language: Java
+severity: error
+message: "@Transactional method performs external HTTP/RestClient I/O, risking DB connection pool exhaustion."
+ignores:
+  - "**/src/test/**"
+rule:
+  kind: method_declaration
+  all:
+    - has:
+        kind: modifiers
+        has:
+          stopBy: end
+          pattern: "@Transactional"
+    - has:
+        stopBy: end
+        any:
+          - pattern: $CLIENT.exchange($$$)
+          - pattern: $CLIENT.postForEntity($$$)
+          - pattern: $CLIENT.getForEntity($$$)
+          - pattern: $CLIENT.get()
+          - pattern: $CLIENT.post()
+---
+id: java-controller-direct-repository
+language: Java
+severity: warning
+message: "@RestController references a Repository directly; introduce a domain/application service layer."
+ignores:
+  - "**/src/test/**"
+rule:
+  kind: class_declaration
+  all:
+    - has:
+        kind: modifiers
+        has:
+          stopBy: end
+          pattern: "@RestController"
+    - has:
+        stopBy: end
+        pattern: $REPO.findById($$$)
+---
+id: java-log-and-rethrow
+language: Java
+severity: warning
+message: "Catch block both logs and rethrows exception (causes duplicate error noise in CloudWatch)."
+ignores:
+  - "**/src/test/**"
+rule:
+  kind: catch_clause
+  all:
+    - has:
+        stopBy: end
+        any:
+          - pattern: $LOG.error($$$)
+          - pattern: $LOG.warn($$$)
+    - has:
+        stopBy: end
+        kind: throw_statement

@@ -1,0 +1,21 @@
+rules:
+  - id: java-sql-string-concat
+    languages: [java]
+    severity: ERROR
+    message: "Potential SQL injection or unparameterized query built via string concatenation."
+    pattern-either:
+      - pattern: $STMT.executeQuery($Q + $VAR)
+      - pattern: $JDBC.query($Q + $VAR, ...)
+  - id: go-sql-sprintf
+    languages: [go]
+    severity: ERROR
+    message: "SQL query constructed with fmt.Sprintf; use parameterized $1/? placeholders."
+    pattern-either:
+      - pattern: $DB.QueryContext($CTX, fmt.Sprintf($FMT, ...), ...)
+      - pattern: $DB.ExecContext($CTX, fmt.Sprintf($FMT, ...), ...)
+  - id: rust-std-sleep-in-async
+    languages: [rust]
+    severity: WARNING
+    message: "Blocking std::thread::sleep inside function risks starving async executor threads."
+    pattern: std::thread::sleep($DUR)
+
